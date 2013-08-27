@@ -5,8 +5,11 @@ enum nc_option_type {
     NC_OPT_INCREMENT,
     NC_OPT_DECREMENT,
     NC_OPT_ENUM,
+    NC_OPT_SET_ENUM,
     NC_OPT_STRING,
+    NC_OPT_FLOAT,
     NC_OPT_STRING_LIST,
+    NC_OPT_READ_FILE
 };
 
 struct nc_option {
@@ -18,15 +21,27 @@ struct nc_option {
     //  Parsing specification
     enum nc_option_type type;
     int option_position;  // offsetof() where to store the value
-    void *pointer;  // type specific pointer
+    const void *pointer;  // type specific pointer
+
+    //  Conflict mask for options
+    unsigned long mask_set;
+    unsigned long conflicts_mask;
+    unsigned long requires_mask;
 
     //  Group and description for --help
     char *group;
+    char *metavar;
     char *description;
 };
 
+struct nc_enum_item {
+    char *name;
+    int value;
+};
 
-void nc_parse_options(struct nc_option *options, void *target);
+
+void nc_parse_options(struct nc_option *options, void *target,
+    int argc, char **argv);
 
 
 #endif  // NC_OPTIONS_HEADER

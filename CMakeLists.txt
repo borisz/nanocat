@@ -3,7 +3,9 @@ project (nanocat)
 include (FindPkgConfig)
 
 add_executable (nanocat
-    src/main.c)
+    src/main.c
+    src/options.c
+    )
 
 
 pkg_search_module(NANOMSG REQUIRED nanomsg)
