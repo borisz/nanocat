@@ -4,13 +4,17 @@
 
 typedef struct nc_options {
     int verbose;
+    int socket_type;
 } nc_options_t;
 
 
 struct nc_option nc_options[] = {
     // Generic options
-    {"verbose", 'v', NC_OPT_INCREMENT, offsetof(nc_options_t, verbose),
-     "Generic", "increase verbosity of the nanocat"},
+    {"verbose", 'v', NULL, NC_OPT_INCREMENT, offsetof(nc_options_t, verbose),
+     "Generic", "Increase verbosity of the nanocat"},
+    // Socket types
+    {"push", 'p', NULL, NC_OPT_SET, offsetof(nc_options_t, socket_type),
+     "Socket Types", "Use PUSH socket type"},
     // Sentinel
     {NULL}
     };
