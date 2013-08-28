@@ -14,6 +14,7 @@ struct nc_parse_context {
     char **argv;
 
     //  Current values
+    unsigned long mask;
     int args_left;
     char **arg;
     char *data;
@@ -47,6 +48,12 @@ static void nc_argument_error(char *message, struct nc_parse_context *ctx,
     exit(1);
 }
 
+static void nc_option_error(char *message, struct nc_parse_context *ctx,
+                     struct nc_option *opt) {
+    fprintf(stderr, "Option ``--%s'' %s\n", opt->longname, message);
+    exit(1);
+}
+
 static void nc_memory_error() {
     fprintf(stderr, "Memory error while parsing comand-line");
     abort();
@@ -75,6 +82,11 @@ static void nc_process_option(struct nc_parse_context *ctx,
     size_t data_buf;
     int bytes_read;
     printf("PARSED ``%s'' with arg ``%s''\n", opt->longname, argument);
+
+    if(ctx->mask & opt->conflicts_mask) {
+        nc_option_error("conflicts with previous option", ctx, opt);
+    }
+    ctx->mask |= opt->mask_set;
 
     switch(opt->type) {
         case NC_OPT_HELP:
