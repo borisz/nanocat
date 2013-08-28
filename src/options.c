@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <errno.h>
+#include <ctype.h>
 
 #include "options.h"
 
@@ -102,11 +103,28 @@ static void nc_print_usage(struct nc_parse_context *ctx, FILE *stream) {
     fprintf(stream, "[options] \n");  // There may be long options too
 }
 
+static char *nc_print_line(FILE *out, char *str, int width) {
+    int i;
+    if(strlen(str) < width) {
+        fprintf(out, "%s", str);
+        return "";
+    }
+    for(i = width; i > 1; --i) {
+        if(isspace(str[i])) {
+            fprintf(out, "%.*s", i, str);
+            return str + i + 1;
+        }
+    }  // no break points, just print as is
+    fprintf(out, "%s", str);
+    return "";
+}
+
 static void nc_print_help(struct nc_parse_context *ctx, FILE *stream) {
     int i;
     int optlen;
     struct nc_option *opt;
     char *last_group;
+    char *cursor;
 
     fprintf(stream, "Usage:\n");
     nc_print_usage(ctx, stream);
@@ -139,12 +157,16 @@ static void nc_print_help(struct nc_parse_context *ctx, FILE *stream) {
             }
         }
         if(optlen < 23) {
-            fprintf(stream, "                        %s\n"+optlen,
-                opt->description);
+            fprintf(stream, "                        " + optlen);
+            cursor = nc_print_line(stream, opt->description, 80-24);
         } else {
-            fprintf(stream, "\n");
-            fprintf(stream, "                        %s\n", opt->description);
+            cursor = opt->description;
         }
+        while(*cursor) {
+            fprintf(stream, "\n                        ");
+            cursor = nc_print_line(stream, cursor, 80-24);
+        }
+        fprintf(stream, "\n");
     }
 }
 
