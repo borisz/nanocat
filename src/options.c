@@ -96,11 +96,45 @@ static void nc_invalid_enum_value(struct nc_parse_context *ctx,
 
     opt = &ctx->options[opt_index];
     items = (struct nc_enum_item *)opt->pointer;
-    fprintf(stderr, "%s: Invalid value for ", ctx->argv[0]);
+    fprintf(stderr, "%s: Invalid value for", ctx->argv[0]);
     nc_print_option(ctx, opt_index, stderr);
     fprintf(stderr, ". Options are:\n");
     for(;items->name; ++items) {
         fprintf(stderr, "    %s\n", items->name);
+    }
+    exit(1);
+}
+
+static void nc_option_conflict(struct nc_parse_context *ctx,
+                              int opt_index) {
+    unsigned long mask;
+    int i;
+    int num_conflicts;
+    struct nc_option *opt;
+
+    fprintf(stderr, "%s: Option", ctx->argv[0]);
+    nc_print_option(ctx, opt_index, stderr);
+    fprintf(stderr, "conflicts with the following options:\n");
+
+    mask = ctx->options[opt_index].conflicts_mask;
+    num_conflicts = 0;
+    for(i = 0;; ++i) {
+        opt = &ctx->options[i];
+        if(!opt->longname)
+            break;
+        if(i == opt_index)
+            continue;
+        if(ctx->last_option_usage[i] && opt->mask_set & mask) {
+            num_conflicts += 1;
+            fprintf(stderr, "   ");
+            nc_print_option(ctx, i, stderr);
+            fprintf(stderr, "\n");
+        }
+    }
+    if(!num_conflicts) {
+        fprintf(stderr, "   ");
+        nc_print_option(ctx, opt_index, stderr);
+        fprintf(stderr, "\n");
     }
     exit(1);
 }
@@ -120,7 +154,7 @@ static void nc_process_option(struct nc_parse_context *ctx,
 
     opt = &ctx->options[opt_index];
     if(ctx->mask & opt->conflicts_mask) {
-        nc_option_error("conflicts with previous option", ctx, opt_index);
+        nc_option_conflict(ctx, opt_index);
     }
     ctx->mask |= opt->mask_set;
 
