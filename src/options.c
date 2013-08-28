@@ -195,6 +195,8 @@ static void nc_print_option(struct nc_parse_context *ctx, int opt_index,
         } else {
             fprintf(stream, " %s ", ousage);
         }
+    } else if(ousage == ctx->argv[0]) {  // Binary name
+        fprintf(stream, " %s (executable) ", ousage);
     } else {  // Short option
         fprintf(stream, " -%c (--%s) ",
             *ousage, opt->longname);
@@ -436,6 +438,7 @@ static void nc_parse_arg0(struct nc_parse_context *ctx) {
             return;
         if(opt->arg0name && !strcmp(ctx->argv[0], opt->arg0name)) {
             assert(!nc_has_arg(opt));
+            ctx->last_option_usage[i] = ctx->argv[0];
             nc_process_option(ctx, i, NULL);
         }
     }
@@ -638,15 +641,15 @@ void nc_parse_options(struct nc_commandline *cline,
     ctx.argv = argv;
     ctx.requires = cline->required_options;
 
-    nc_parse_arg0(&ctx);
-
-    ctx.args_left = argc - 1;
-    ctx.arg = argv;
-
     for(num_options = 0; ctx.options[num_options].longname; ++num_options);
     ctx.last_option_usage = calloc(sizeof(char *), num_options);
     if(!ctx.last_option_usage)
         nc_memory_error(&ctx);
+
+    nc_parse_arg0(&ctx);
+
+    ctx.args_left = argc - 1;
+    ctx.arg = argv;
 
     while(nc_get_arg(&ctx)) {
         nc_parse_arg(&ctx);

@@ -6,6 +6,11 @@
 #include <nanomsg/survey.h>
 #include <nanomsg/reqrep.h>
 
+#include <stdio.h>
+#include <string.h>
+#include <errno.h>
+#include <stdlib.h>
+
 #include "options.h"
 
 enum echo_format {
@@ -24,7 +29,8 @@ typedef struct nc_options {
     int socket_type;
     struct nc_string_list bind_addresses;
     struct nc_string_list connect_addresses;
-    float timeout;
+    float send_timeout;
+    float recv_timeout;
     struct nc_string_list subscriptions;
 
     // Data options
@@ -149,11 +155,11 @@ struct nc_option nc_options[] = {
      NC_NO_PROVIDES, NC_NO_CONFLICTS, NC_NO_REQUIRES,
      "Socket Options", "ADDR", "Connect socket to the address ADDR"},
     {"recv-timeout", 't', NULL,
-     NC_OPT_FLOAT, offsetof(nc_options_t, timeout), NULL,
+     NC_OPT_FLOAT, offsetof(nc_options_t, recv_timeout), NULL,
      NC_NO_PROVIDES, NC_NO_CONFLICTS, NC_MASK_READABLE,
      "Socket Options", "SEC", "Set timeout for receiving a message"},
     {"send-timeout", 'T', NULL,
-     NC_OPT_FLOAT, offsetof(nc_options_t, timeout), NULL,
+     NC_OPT_FLOAT, offsetof(nc_options_t, send_timeout), NULL,
      NC_NO_PROVIDES, NC_NO_CONFLICTS, NC_MASK_WRITEABLE,
      "Socket Options", "SEC", "Set timeout for sending a message"},
 
@@ -216,22 +222,96 @@ struct nc_commandline nc_cli = {
     .required_options = NC_MASK_SOCK,
     };
 
+
+void nc_assert_errno(int flag, char *description) {
+    if(!flag) {
+        int err = errno;
+        fprintf(stderr, description);
+        fprintf(stderr, ": %s\n", strerror(err));
+        exit(3);
+    }
+}
+
+void nc_sub_init(nc_options_t *options, int sock) {
+    int i;
+    int rc;
+
+    if(options->subscriptions.num) {
+        for(i = 0; i < options->subscriptions.num; ++i) {
+            rc = nn_setsockopt(sock, NN_SUB, NN_SUB_SUBSCRIBE,
+                options->subscriptions.items[i],
+                strlen(options->subscriptions.items[i]));
+            nc_assert_errno(rc == 0, "Can't subscribe");
+        }
+    } else {
+        rc = nn_setsockopt(sock, NN_SUB, NN_SUB_SUBSCRIBE, "", 0);
+        nc_assert_errno(rc == 0, "Can't subscribe");
+    }
+}
+
+int nc_create_socket(nc_options_t *options) {
+    int sock;
+    int rc;
+    int millis;
+
+    sock = nn_socket(AF_SP, options->socket_type);
+    nc_assert_errno(sock >= 0, "Can't create socket");
+
+    // Generic initialization
+    if(options->send_timeout >= 0) {
+        millis = (int)(options->send_timeout * 1000);
+        rc = nn_setsockopt(sock, NN_SOL_SOCKET, NN_SNDTIMEO,
+                           &millis, sizeof(millis));
+        nc_assert_errno(rc == 0, "Can't set send timeout");
+    }
+    if(options->recv_timeout >= 0) {
+        millis = (int)(options->recv_timeout * 1000);
+        rc = nn_setsockopt(sock, NN_SOL_SOCKET, NN_RCVTIMEO,
+                           &millis, sizeof(millis));
+        nc_assert_errno(rc == 0, "Can't set recv timeout");
+    }
+
+    // Specific intitalization
+    switch(options->socket_type) {
+    case NN_SUB:
+        nc_sub_init(options, sock);
+        break;
+    }
+
+    return sock;
+}
+
+void nc_connect_socket(nc_options_t *options, int sock) {
+    int i;
+    int rc;
+
+    for(i = 0; i < options->bind_addresses.num; ++i) {
+        rc = nn_bind(sock, options->bind_addresses.items[i]);
+        nc_assert_errno(rc >= 0, "Can't bind");
+    }
+    for(i = 0; i < options->connect_addresses.num; ++i) {
+        rc = nn_connect(sock, options->connect_addresses.items[i]);
+        nc_assert_errno(rc >= 0, "Can't connect");
+    }
+}
+
 int main(int argc, char **argv) {
+    int sock;
     nc_options_t options = {
         .verbose = 0,
         .socket_type = 0,
         .bind_addresses = {NULL, 0},
         .connect_addresses = {NULL, 0},
-        .timeout = -1.f,
+        .send_timeout = -1.f,
+        .recv_timeout = -1.f,
         .subscriptions = {NULL, 0},
         .data_to_send = {NULL, 0},
         .echo_format = NC_NO_ECHO
         };
-    nc_parse_options(&nc_cli, &options, argc, argv);
-    printf("VERBOSITY %d, timeout %f, sock %d, fmt %d, data [%d]``%.*s''\n",
-        options.verbose, options.timeout,
-        options.socket_type, options.echo_format,
-        options.data_to_send.length, options.data_to_send.length,
-        options.data_to_send.data);
 
+    nc_parse_options(&nc_cli, &options, argc, argv);
+    sock = nc_create_socket(&options);
+    nc_connect_socket(&options, sock);
+//    nc_loop(&options, sock);
+    nn_close(sock);
 }
