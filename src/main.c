@@ -117,7 +117,7 @@ struct nc_option nc_options[] = {
     {"pub", 'S', "nn_pub",
      NC_OPT_SET_ENUM, offsetof(nc_options_t, socket_type), &nn_pub,
      NC_MASK_SOCK_WRITEABLE, NC_MASK_SOCK, NC_NO_REQUIRES,
-     "Socket Types", NULL, "Use NN_SUB socket type"},
+     "Socket Types", NULL, "Use NN_PUB socket type"},
     {"sub", 's', "nn_sub",
      NC_OPT_SET_ENUM, offsetof(nc_options_t, socket_type), &nn_sub,
      NC_MASK_SOCK_READABLE|NC_MASK_SOCK_SUB, NC_MASK_SOCK, NC_NO_REQUIRES,
@@ -152,7 +152,7 @@ struct nc_option nc_options[] = {
      NC_OPT_FLOAT, offsetof(nc_options_t, timeout), NULL,
      NC_NO_PROVIDES, NC_NO_CONFLICTS, NC_MASK_READABLE,
      "Socket Options", "SEC", "Set timeout for receiving a message"},
-    {"send-timeout", 't', NULL,
+    {"send-timeout", 'T', NULL,
      NC_OPT_FLOAT, offsetof(nc_options_t, timeout), NULL,
      NC_NO_PROVIDES, NC_NO_CONFLICTS, NC_MASK_WRITEABLE,
      "Socket Options", "SEC", "Set timeout for sending a message"},
@@ -161,7 +161,7 @@ struct nc_option nc_options[] = {
     {"subscribe", 0, NULL,
      NC_OPT_STRING_LIST, offsetof(nc_options_t, subscriptions), NULL,
      NC_NO_PROVIDES, NC_NO_CONFLICTS, NC_MASK_SOCK_SUB,
-     "SUB Socket options", "PREFIX", "Subscribe to the prefix PREFIX. "
+     "SUB Socket Options", "PREFIX", "Subscribe to the prefix PREFIX. "
         "Note: socket will be subscribed to everything (empty prefix) if "
         "no prefixes are specified on the command-line."},
 

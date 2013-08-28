@@ -40,8 +40,112 @@ static int nc_has_arg(struct nc_option *opt) {
     abort();
 }
 
+static void nc_print_usage(struct nc_parse_context *ctx, FILE *stream) {
+    int i;
+    int first;
+    struct nc_option *opt;
+
+    fprintf(stream, "    %s ", ctx->argv[0]);
+
+    // Print required options (long names)
+    first = 1;
+    for(i = 0;; ++i) {
+        opt = &ctx->options[i];
+        if(!opt->longname)
+            break;
+        if(opt->mask_set & ctx->requires) {
+            if(first) {
+                first = 0;
+                fprintf(stream, "{--%s", opt->longname);
+            } else {
+                fprintf(stream, "|--%s", opt->longname);
+            }
+        }
+    }
+    if(!first) {
+        fprintf(stream, "} ");
+    }
+
+    // Print flag short options
+    first = 1;
+    for(i = 0;; ++i) {
+        opt = &ctx->options[i];
+        if(!opt->longname)
+            break;
+        if(opt->mask_set & ctx->requires)
+            continue;  // already printed
+        if(opt->shortname && !nc_has_arg(opt)) {
+            if(first) {
+                first = 0;
+                fprintf(stream, "[-%c", opt->shortname);
+            } else {
+                fprintf(stream, "%c", opt->shortname);
+            }
+        }
+    }
+    if(!first) {
+        fprintf(stream, "] ");
+    }
+
+    // Print short options with arguments
+    for(i = 0;; ++i) {
+        opt = &ctx->options[i];
+        if(!opt->longname)
+            break;
+        if(opt->mask_set & ctx->requires)
+            continue;  // already printed
+        if(opt->shortname && nc_has_arg(opt) && opt->metavar) {
+            fprintf(stream, "[-%c %s] ", opt->shortname, opt->metavar);
+        }
+    }
+
+    fprintf(stream, "[options] \n");  // There may be long options too
+}
+
 static void nc_print_help(struct nc_parse_context *ctx, FILE *stream) {
+    int i;
+    int optlen;
+    struct nc_option *opt;
+    char *last_group;
+
     fprintf(stream, "Usage:\n");
+    nc_print_usage(ctx, stream);
+
+    last_group == NULL;
+    for(i = 0;; ++i) {
+        opt = &ctx->options[i];
+        if(!opt->longname)
+            break;
+        if(!last_group || last_group != opt->group ||
+            strcmp(last_group, opt->group))
+        {
+            fprintf(stream, "\n");
+            fprintf(stream, "%s:\n", opt->group);
+            last_group = opt->group;
+        }
+        fprintf(stream, " --%s", opt->longname);
+        optlen = 3 + strlen(opt->longname);
+        if(opt->shortname) {
+            fprintf(stream, ",-%c", opt->shortname);
+            optlen += 3;
+        }
+        if(nc_has_arg(opt)) {
+            if(opt->metavar) {
+                fprintf(stream, " %s", opt->metavar);
+                optlen += strlen(opt->metavar) + 1;
+            } else {
+                fprintf(stream, " ARG");
+                optlen += 4;
+            }
+        }
+        if(optlen < 23) {
+            fprintf(stream, "                        %s\n"+optlen,
+                opt->description);
+        } else {
+            fprintf(stream, "\n");
+            fprintf(stream, "                        %s\n", opt->description);
+        }
+    }
 }
 
 static void nc_print_option(struct nc_parse_context *ctx, int opt_index,
@@ -484,7 +588,7 @@ void nn_check_requires(struct nc_parse_context *ctx) {
             break;
         if(!ctx->last_option_usage[i])
             continue;
-        if(opt->requires_mask && !(opt->requires_mask & ctx->mask)) {
+        if(opt->requires_mask && opt->requires_mask & ctx->mask) {
             nc_option_requires(ctx, i);
         }
     }
