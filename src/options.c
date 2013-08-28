@@ -139,6 +139,30 @@ static void nc_option_conflict(struct nc_parse_context *ctx,
     exit(1);
 }
 
+static void nc_option_requires(struct nc_parse_context *ctx, int opt_index) {
+    unsigned long mask;
+    int i;
+    struct nc_option *opt;
+
+    fprintf(stderr, "%s: Option", ctx->argv[0]);
+    nc_print_option(ctx, opt_index, stderr);
+    fprintf(stderr, "requires at least one of the following options:\n");
+
+    mask = ctx->options[opt_index].requires_mask;
+    for(i = 0;; ++i) {
+        opt = &ctx->options[i];
+        if(!opt->longname)
+            break;
+        if(opt->mask_set & mask) {
+            fprintf(stderr, "    --%s\n", opt->longname);
+            if(opt->shortname) {
+                fprintf(stderr, "    -%c\n", opt->shortname);
+            }
+        }
+    }
+    exit(1);
+}
+
 static void nc_process_option(struct nc_parse_context *ctx,
                               int opt_index, char *argument) {
     struct nc_option *opt;
@@ -351,7 +375,7 @@ static void nc_parse_long_option(struct nc_parse_context *ctx) {
                 if(!*a) {  // Matches end of option name
                     best_match = i;
                     longest_prefix = cur_prefix;
-                    break;
+                    goto finish;
                 }
                 if(cur_prefix == longest_prefix) {
                     best_match = -1;  // Ambiguity
@@ -365,6 +389,7 @@ static void nc_parse_long_option(struct nc_parse_context *ctx) {
             }
         }
     }
+finish:
     if(best_match >= 0) {
         opt = &ctx->options[best_match];
         ctx->last_option_usage[best_match] = ctx->data;
@@ -444,6 +469,22 @@ static void nc_parse_arg(struct nc_parse_context *ctx) {
     }
 }
 
+void nn_check_requires(struct nc_parse_context *ctx) {
+    int i;
+    struct nc_option *opt;
+
+    for(i = 0;; ++i) {
+        opt = &ctx->options[i];
+        if(!opt->longname)
+            break;
+        if(!ctx->last_option_usage[i])
+            continue;
+        if(opt->requires_mask && !(opt->requires_mask & ctx->mask)) {
+            nc_option_requires(ctx, i);
+        }
+    }
+}
+
 void nc_parse_options(struct nc_option *options, void *target,
                       int argc, char **argv) {
     struct nc_parse_context ctx;
@@ -467,6 +508,8 @@ void nc_parse_options(struct nc_option *options, void *target,
     while(nc_get_arg(&ctx)) {
         nc_parse_arg(&ctx);
     }
+
+    nn_check_requires(&ctx);
 
     free(ctx.last_option_usage);
 
