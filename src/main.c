@@ -220,7 +220,8 @@ int main(int argc, char **argv) {
         data_to_send: {NULL, 0},
         echo_format: NC_NO_ECHO
         };
-    nc_parse_options(nc_options, &options, argc, argv);
+    nc_parse_options(nc_options, NC_MASK_SOCK,
+        &options, argc, argv);
     printf("VERBOSITY %d, timeout %f, sock %d, fmt %d, data [%d]``%.*s''\n",
         options.verbose, options.timeout,
         options.socket_type, options.echo_format,

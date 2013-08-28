@@ -12,6 +12,7 @@ struct nc_parse_context {
     void *target;
     int argc;
     char **argv;
+    unsigned long requires;
 
     //  Current values
     unsigned long mask;
@@ -139,16 +140,11 @@ static void nc_option_conflict(struct nc_parse_context *ctx,
     exit(1);
 }
 
-static void nc_option_requires(struct nc_parse_context *ctx, int opt_index) {
-    unsigned long mask;
+static void nc_print_requires(struct nc_parse_context *ctx, unsigned long mask)
+{
     int i;
     struct nc_option *opt;
 
-    fprintf(stderr, "%s: Option", ctx->argv[0]);
-    nc_print_option(ctx, opt_index, stderr);
-    fprintf(stderr, "requires at least one of the following options:\n");
-
-    mask = ctx->options[opt_index].requires_mask;
     for(i = 0;; ++i) {
         opt = &ctx->options[i];
         if(!opt->longname)
@@ -160,6 +156,15 @@ static void nc_option_requires(struct nc_parse_context *ctx, int opt_index) {
             }
         }
     }
+    exit(1);
+}
+
+static void nc_option_requires(struct nc_parse_context *ctx, int opt_index) {
+    fprintf(stderr, "%s: Option", ctx->argv[0]);
+    nc_print_option(ctx, opt_index, stderr);
+    fprintf(stderr, "requires at least one of the following options:\n");
+
+    nc_print_requires(ctx, ctx->options[opt_index].requires_mask);
     exit(1);
 }
 
@@ -483,10 +488,18 @@ void nn_check_requires(struct nc_parse_context *ctx) {
             nc_option_requires(ctx, i);
         }
     }
+
+    if(!(ctx->requires & ctx->mask)) {
+        fprintf(stderr, "%s: At least one of the following required:\n",
+            ctx->argv[0]);
+        nc_print_requires(ctx, ctx->requires);
+        exit(1);
+    }
 }
 
-void nc_parse_options(struct nc_option *options, void *target,
-                      int argc, char **argv) {
+void nc_parse_options(struct nc_option *options, unsigned long requires,
+    void *target, int argc, char **argv)
+{
     struct nc_parse_context ctx;
     int num_options;
 
@@ -494,6 +507,7 @@ void nc_parse_options(struct nc_option *options, void *target,
     ctx.target = target;
     ctx.argc = argc;
     ctx.argv = argv;
+    ctx.requires = requires;
 
     nc_parse_arg0(&ctx);
 

@@ -52,8 +52,8 @@ struct nc_blob {
 };
 
 
-void nc_parse_options(struct nc_option *options, void *target,
-    int argc, char **argv);
+void nc_parse_options(struct nc_option *options, unsigned long requires,
+    void *target, int argc, char **argv);
 
 
 #endif  // NC_OPTIONS_HEADER
