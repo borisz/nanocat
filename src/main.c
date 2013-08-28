@@ -83,81 +83,84 @@ struct nc_enum_item echo_formats[] = {
 #define NC_MASK_READABLE 4
 #define NC_MASK_SOCK_SUB 8
 #define NC_MASK_DATA 16
-#define NC_MASK_SOCK_WRITEABLE (1 | 2)
-#define NC_MASK_SOCK_READABLE (1 | 4)
-#define NC_MASK_SOCK_READWRITE  (1 | 2 | 4)
+#define NC_NO_PROVIDES 0
+#define NC_NO_CONFLICTS 0
+#define NC_NO_REQUIRES 0
+#define NC_MASK_SOCK_WRITEABLE (NC_MASK_SOCK | NC_MASK_WRITEABLE)
+#define NC_MASK_SOCK_READABLE (NC_MASK_SOCK | NC_MASK_READABLE)
+#define NC_MASK_SOCK_READWRITE  (NC_MASK_SOCK_WRITEABLE|NC_MASK_SOCK_READABLE)
 
 struct nc_option nc_options[] = {
     // Generic options
     {"verbose", 'v', NULL,
      NC_OPT_INCREMENT, offsetof(nc_options_t, verbose), NULL,
-     0, 0, 0,
+     NC_NO_PROVIDES, NC_NO_CONFLICTS, NC_NO_REQUIRES,
      "Generic", NULL, "Increase verbosity of the nanocat"},
     {"silent", 'q', NULL,
      NC_OPT_DECREMENT, offsetof(nc_options_t, verbose), NULL,
-     0, 0, 0,
+     NC_NO_PROVIDES, NC_NO_CONFLICTS, NC_NO_REQUIRES,
      "Generic", NULL, "Decrease verbosity of the nanocat"},
     {"help", 'h', NULL,
      NC_OPT_HELP, 0, NULL,
-     0, 0, 0,
+     NC_NO_PROVIDES, NC_NO_CONFLICTS, NC_NO_REQUIRES,
      "Generic", NULL, "This help text"},
 
     // Socket types
     {"push", 'p', "nn_push",
      NC_OPT_SET_ENUM, offsetof(nc_options_t, socket_type), &nn_push,
-     NC_MASK_SOCK_WRITEABLE, NC_MASK_SOCK, 0,
+     NC_MASK_SOCK_WRITEABLE, NC_MASK_SOCK, NC_NO_REQUIRES,
      "Socket Types", NULL, "Use NN_PUSH socket type"},
     {"pull", 'P', "nn_pull",
      NC_OPT_SET_ENUM, offsetof(nc_options_t, socket_type), &nn_pull,
-     NC_MASK_SOCK_READABLE, NC_MASK_SOCK, 0,
+     NC_MASK_SOCK_READABLE, NC_MASK_SOCK, NC_NO_REQUIRES,
      "Socket Types", NULL, "Use NN_PULL socket type"},
     {"pub", 'S', "nn_pub",
      NC_OPT_SET_ENUM, offsetof(nc_options_t, socket_type), &nn_pub,
-     NC_MASK_SOCK_WRITEABLE, NC_MASK_SOCK, 0,
+     NC_MASK_SOCK_WRITEABLE, NC_MASK_SOCK, NC_NO_REQUIRES,
      "Socket Types", NULL, "Use NN_SUB socket type"},
     {"sub", 's', "nn_sub",
      NC_OPT_SET_ENUM, offsetof(nc_options_t, socket_type), &nn_sub,
-     NC_MASK_SOCK_READABLE|NC_MASK_SOCK_SUB, NC_MASK_SOCK, 0,
+     NC_MASK_SOCK_READABLE|NC_MASK_SOCK_SUB, NC_MASK_SOCK, NC_NO_REQUIRES,
      "Socket Types", NULL, "Use NN_SUB socket type"},
     {"req", 'R', "nn_req",
      NC_OPT_SET_ENUM, offsetof(nc_options_t, socket_type), &nn_req,
-     NC_MASK_SOCK_READWRITE, NC_MASK_SOCK, 0,
+     NC_MASK_SOCK_READWRITE, NC_MASK_SOCK, NC_NO_REQUIRES,
      "Socket Types", NULL, "Use NN_REQ socket type"},
     {"rep", 'r', "nn_rep",
      NC_OPT_SET_ENUM, offsetof(nc_options_t, socket_type), &nn_rep,
-     NC_MASK_SOCK_READWRITE, NC_MASK_SOCK, 0,
+     NC_MASK_SOCK_READWRITE, NC_MASK_SOCK, NC_NO_REQUIRES,
      "Socket Types", NULL, "Use NN_REP socket type"},
     {"surveyor", 'U', "nn_surveyor",
      NC_OPT_SET_ENUM, offsetof(nc_options_t, socket_type), &nn_surveyor,
-     NC_MASK_SOCK_READWRITE, NC_MASK_SOCK, 0,
+     NC_MASK_SOCK_READWRITE, NC_MASK_SOCK, NC_NO_REQUIRES,
      "Socket Types", NULL, "Use NN_SURVEYOR socket type"},
     {"respondent", 'u', "nn_respondent",
      NC_OPT_SET_ENUM, offsetof(nc_options_t, socket_type), &nn_respondent,
-     NC_MASK_SOCK_READWRITE, NC_MASK_SOCK, 0,
+     NC_MASK_SOCK_READWRITE, NC_MASK_SOCK, NC_NO_REQUIRES,
      "Socket Types", NULL, "Use NN_RESPONDENT socket type"},
 
     // Socket Options
     {"bind", 'b' , NULL,
      NC_OPT_STRING_LIST, offsetof(nc_options_t, bind_addresses), NULL,
-     0, 0, 0,
+     NC_NO_PROVIDES, NC_NO_CONFLICTS, NC_NO_REQUIRES,
      "Socket Options", "ADDR", "Bind socket to the address ADDR"},
     {"connect", 'c' , NULL,
      NC_OPT_STRING_LIST, offsetof(nc_options_t, connect_addresses), NULL,
-     0, 0, 0,
+     NC_NO_PROVIDES, NC_NO_CONFLICTS, NC_NO_REQUIRES,
      "Socket Options", "ADDR", "Connect socket to the address ADDR"},
     {"recv-timeout", 't', NULL,
      NC_OPT_FLOAT, offsetof(nc_options_t, timeout), NULL,
-     0, 0, NC_MASK_READABLE,
+     NC_NO_PROVIDES, NC_NO_CONFLICTS, NC_MASK_READABLE,
      "Socket Options", "SEC", "Set timeout for receiving a message"},
     {"send-timeout", 't', NULL,
      NC_OPT_FLOAT, offsetof(nc_options_t, timeout), NULL,
-     0, 0, NC_MASK_WRITEABLE,
+     NC_NO_PROVIDES, NC_NO_CONFLICTS, NC_MASK_WRITEABLE,
      "Socket Options", "SEC", "Set timeout for sending a message"},
 
     // Pattern-specific options
     {"subscribe", 0, NULL,
      NC_OPT_STRING_LIST, offsetof(nc_options_t, subscriptions), NULL,
-     0, 0, NC_MASK_SOCK_SUB,
+     NC_NO_PROVIDES, NC_NO_CONFLICTS, NC_MASK_SOCK_SUB,
      "SUB Socket options", "PREFIX", "Subscribe to the prefix PREFIX. "
         "Note: socket will be subscribed to everything (empty prefix) if "
         "no prefixes are specified on the command-line."},
@@ -165,27 +168,27 @@ struct nc_option nc_options[] = {
     // Echo Options
     {"format", 'f', NULL,
      NC_OPT_ENUM, offsetof(nc_options_t, echo_format), &echo_formats,
-     0, 0, NC_MASK_READABLE,
+     NC_NO_PROVIDES, NC_NO_CONFLICTS, NC_MASK_READABLE,
      "Echo Options", "FORMAT", "Use echo format FORMAT "
                                "(same as the options below)"},
     {"raw", 0, NULL,
      NC_OPT_SET_ENUM, offsetof(nc_options_t, echo_format), &nc_echo_raw,
-     0, 0, NC_MASK_READABLE,
+     NC_NO_PROVIDES, NC_NO_CONFLICTS, NC_MASK_READABLE,
      "Echo Options", NULL, "Dump message as is "
                            "(Note: no delimiters are printed)"},
     {"ascii", 'L', NULL,
      NC_OPT_SET_ENUM, offsetof(nc_options_t, echo_format), &nc_echo_ascii,
-     0, 0, NC_MASK_READABLE,
+     NC_NO_PROVIDES, NC_NO_CONFLICTS, NC_MASK_READABLE,
      "Echo Options", NULL, "Print ASCII part of message delimited by newline. "
                            "All non-ascii characters replaced by dot."},
     {"quoted", 'Q', NULL,
      NC_OPT_SET_ENUM, offsetof(nc_options_t, echo_format), &nc_echo_quoted,
-     0, 0, NC_MASK_READABLE,
+     NC_NO_PROVIDES, NC_NO_CONFLICTS, NC_MASK_READABLE,
      "Echo Options", NULL, "Print each message on separate line in double "
                            "quotes with C-like character escaping"},
     {"msgpack", 0, NULL,
      NC_OPT_SET_ENUM, offsetof(nc_options_t, echo_format), &nc_echo_msgpack,
-     0, 0, NC_MASK_READABLE,
+     NC_NO_PROVIDES, NC_NO_CONFLICTS, NC_MASK_READABLE,
      "Echo Options", NULL, "Print each message as msgpacked string (raw type)."
                            " This is useful for programmatic parsing."},
 
