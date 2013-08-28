@@ -36,6 +36,13 @@ struct nc_option {
     char *description;
 };
 
+struct nc_commandline {
+    char *short_description;
+    char *long_description;
+    struct nc_option *options;
+    int required_options;
+};
+
 struct nc_enum_item {
     char *name;
     int value;
@@ -52,8 +59,8 @@ struct nc_blob {
 };
 
 
-void nc_parse_options(struct nc_option *options, unsigned long requires,
-    void *target, int argc, char **argv);
+void nc_parse_options(struct nc_commandline *cline,
+                      void *target, int argc, char **argv);
 
 
 #endif  // NC_OPTIONS_HEADER

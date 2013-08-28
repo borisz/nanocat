@@ -209,19 +209,25 @@ struct nc_option nc_options[] = {
     };
 
 
+struct nc_commandline nc_cli = {
+    .short_description = "A command-line interface to nanomsg",
+    .long_description = "",
+    .options = nc_options,
+    .required_options = NC_MASK_SOCK,
+    };
+
 int main(int argc, char **argv) {
     nc_options_t options = {
-        verbose: 0,
-        socket_type: 0,
-        bind_addresses: {NULL, 0},
-        connect_addresses: {NULL, 0},
-        timeout: -1.f,
-        subscriptions: {NULL, 0},
-        data_to_send: {NULL, 0},
-        echo_format: NC_NO_ECHO
+        .verbose = 0,
+        .socket_type = 0,
+        .bind_addresses = {NULL, 0},
+        .connect_addresses = {NULL, 0},
+        .timeout = -1.f,
+        .subscriptions = {NULL, 0},
+        .data_to_send = {NULL, 0},
+        .echo_format = NC_NO_ECHO
         };
-    nc_parse_options(nc_options, NC_MASK_SOCK,
-        &options, argc, argv);
+    nc_parse_options(&nc_cli, &options, argc, argv);
     printf("VERBOSITY %d, timeout %f, sock %d, fmt %d, data [%d]``%.*s''\n",
         options.verbose, options.timeout,
         options.socket_type, options.echo_format,

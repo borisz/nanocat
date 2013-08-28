@@ -9,6 +9,7 @@
 
 struct nc_parse_context {
     //  Initial state
+    struct nc_commandline *def;
     struct nc_option *options;
     void *target;
     int argc;
@@ -128,8 +129,9 @@ static void nc_print_help(struct nc_parse_context *ctx, FILE *stream) {
 
     fprintf(stream, "Usage:\n");
     nc_print_usage(ctx, stream);
+    fprintf(stream, "\n%s\n", ctx->def->short_description);
 
-    last_group == NULL;
+    last_group = NULL;
     for(i = 0;; ++i) {
         opt = &ctx->options[i];
         if(!opt->longname)
@@ -623,17 +625,18 @@ void nn_check_requires(struct nc_parse_context *ctx) {
     }
 }
 
-void nc_parse_options(struct nc_option *options, unsigned long requires,
+void nc_parse_options(struct nc_commandline *cline,
     void *target, int argc, char **argv)
 {
     struct nc_parse_context ctx;
     int num_options;
 
-    ctx.options = options;
+    ctx.def = cline;
+    ctx.options = cline->options;
     ctx.target = target;
     ctx.argc = argc;
     ctx.argv = argv;
-    ctx.requires = requires;
+    ctx.requires = cline->required_options;
 
     nc_parse_arg0(&ctx);
 
