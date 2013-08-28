@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <errno.h>
 
 #include "options.h"
 
@@ -27,6 +28,7 @@ static int nc_has_arg(struct nc_option *opt) {
             return 0;
         case NC_OPT_ENUM:
         case NC_OPT_STRING:
+        case NC_OPT_BLOB:
         case NC_OPT_FLOAT:
         case NC_OPT_STRING_LIST:
         case NC_OPT_READ_FILE:
@@ -39,27 +41,149 @@ static void nc_print_help(struct nc_parse_context *ctx, FILE *stream) {
     fprintf(stream, "Usage:\n");
 }
 
+static void nc_argument_error(char *message, struct nc_parse_context *ctx,
+                     struct nc_option *opt) {
+    fprintf(stderr, "Option ``--%s'' %s\n", opt->longname, message);
+    exit(1);
+}
+
+static void nc_memory_error() {
+    fprintf(stderr, "Memory error while parsing comand-line");
+    abort();
+}
+
+static void nc_invalid_enum_value(struct nc_parse_context *ctx,
+    struct nc_option *opt, char *argument, struct nc_enum_item *items)
+{
+    fprintf(stderr, "Invalid value for ``--%s``. Options are:\n",
+        opt->longname);
+    for(;items->name; ++items) {
+        fprintf(stderr, "    %s\n", items->name);
+    }
+    exit(1);
+}
+
 static void nc_process_option(struct nc_parse_context *ctx,
                               struct nc_option *opt, char *argument) {
+    struct nc_enum_item *items;
+    char *endptr;
+    struct nc_string_list *lst;
+    struct nc_blob *blob;
+    FILE *file;
+    char *data;
+    size_t data_len;
+    size_t data_buf;
+    int bytes_read;
     printf("PARSED ``%s'' with arg ``%s''\n", opt->longname, argument);
+
     switch(opt->type) {
+        case NC_OPT_HELP:
+            nc_print_help(ctx, stdout);
+            return;
         case NC_OPT_INCREMENT:
             *(int *)(((char *)ctx->target) + opt->offset) += 1;
             return;
         case NC_OPT_DECREMENT:
             *(int *)(((char *)ctx->target) + opt->offset) -= 1;
             return;
+        case NC_OPT_ENUM:
+            items = (struct nc_enum_item *)opt->pointer;
+            for(;items->name; ++items) {
+                if(!strcmp(items->name, argument)) {
+                    *(int *)(((char *)ctx->target) + opt->offset) = \
+                        items->value;
+                    return;
+                }
+            }
+            nc_invalid_enum_value(ctx, opt, argument,
+                 (struct nc_enum_item *)opt->pointer);
+            return;
         case NC_OPT_SET_ENUM:
             *(int *)(((char *)ctx->target) + opt->offset) = \
                 *(int *)(opt->pointer);
             return;
-        case NC_OPT_HELP:
-            nc_print_help(ctx, stdout);
-            return;
         case NC_OPT_STRING:
             *(char **)(((char *)ctx->target) + opt->offset) = argument;
             return;
+        case NC_OPT_BLOB:
+            blob = (struct nc_blob *)(((char *)ctx->target) + opt->offset);
+            blob->data = argument;
+            blob->length = strlen(argument);
+            return;
+        case NC_OPT_FLOAT:
+            *(float *)(((char *)ctx->target) + opt->offset) = strtof(argument,
+                &endptr);
+            if(endptr == argument || *endptr != 0) {
+                nc_argument_error("requires float point argument", ctx, opt);
+            }
+            return;
+        case NC_OPT_STRING_LIST:
+            lst = (struct nc_string_list *)(
+                ((char *)ctx->target) + opt->offset);
+            if(lst->items) {
+                lst->num += 1;
+                lst->items = realloc(lst->items, sizeof(char *)*lst->num);
+            } else {
+                lst->items = malloc(sizeof(char *));
+                lst->num = 1;
+            }
+            if(!lst->items) {
+                nc_memory_error();
+            }
+            lst->items[lst->num-1] = argument;
+            return;
+        case NC_OPT_READ_FILE:
+            if(!strcmp(argument, "-")) {
+                file = stdin;
+            } else {
+                file = fopen(argument, "r");
+                if(!file) {
+                    fprintf(stderr, "Error opening file ``%s'': %s\n",
+                        argument, strerror(errno));
+                    exit(2);
+                }
+            }
+            data = malloc(4096);
+            if(!data)
+                nc_memory_error();
+            data_len = 0;
+            data_buf = 4096;
+            for(;;) {
+                bytes_read = fread(data + data_len, 1, data_buf - data_len,
+                                   file);
+                printf("DATALEN %d\n", bytes_read);
+                data_len += bytes_read;
+                if(feof(file))
+                    break;
+                if(data_buf - data_len < 1024) {
+                    if(data_buf < (1 << 20)) {
+                        data_buf *= 2;  // grow twice until not too big
+                    } else {
+                        data_buf += 1 << 20;  // grow 1 Mb each time
+                    }
+                    data = realloc(data, data_buf);
+                    if(!data)
+                        nc_memory_error();
+                }
+            }
+            if(data_len != data_buf) {
+                data = realloc(data, data_len);
+                assert(data);
+            }
+            if(ferror(file)) {
+                fprintf(stderr, "Error reading file ``%s'': %s\n",
+                    argument, strerror(errno));
+                exit(2);
+            }
+            if(file != stdin) {
+                fclose(file);
+            }
+            blob = (struct nc_blob *)(((char *)ctx->target) + opt->offset);
+            blob->data = data;
+            blob->length = data_len;
+            return;
     }
+    abort();
 }
 
 static void nc_parse_arg0(struct nc_parse_context *ctx) {

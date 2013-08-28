@@ -8,6 +8,7 @@ enum nc_option_type {
     NC_OPT_ENUM,
     NC_OPT_SET_ENUM,
     NC_OPT_STRING,
+    NC_OPT_BLOB,
     NC_OPT_FLOAT,
     NC_OPT_STRING_LIST,
     NC_OPT_READ_FILE
@@ -38,6 +39,16 @@ struct nc_option {
 struct nc_enum_item {
     char *name;
     int value;
+};
+
+struct nc_string_list {
+    char **items;
+    int num;
+};
+
+struct nc_blob {
+    char *data;
+    int length;
 };
 
 

@@ -22,13 +22,13 @@ typedef struct nc_options {
 
     // Socket options
     int socket_type;
-    char **bind_addresses;
-    char **connect_addresses;
+    struct nc_string_list bind_addresses;
+    struct nc_string_list connect_addresses;
     float timeout;
-    char **subscriptions;
+    struct nc_string_list subscriptions;
 
     // Data options
-    char *data_to_send;
+    struct nc_blob data_to_send;
 
     // Echo options
     enum echo_format echo_format;
@@ -191,7 +191,7 @@ struct nc_option nc_options[] = {
 
     // Input Options
     {"data", 'D', NULL,
-     NC_OPT_STRING, offsetof(nc_options_t, data_to_send), &echo_formats,
+     NC_OPT_BLOB, offsetof(nc_options_t, data_to_send), &echo_formats,
      NC_MASK_DATA, NC_MASK_DATA, NC_MASK_WRITEABLE,
      "Data Options", "DATA", "Send DATA to the socket and quit for "
      "PUB, PUSH, PAIR socket. Use DATA to reply for REP or RESPONDENT socket. "
@@ -207,7 +207,21 @@ struct nc_option nc_options[] = {
 
 
 int main(int argc, char **argv) {
-    nc_options_t options;
+    nc_options_t options = {
+        verbose: 0,
+        socket_type: 0,
+        bind_addresses: {NULL, 0},
+        connect_addresses: {NULL, 0},
+        timeout: -1.f,
+        subscriptions: {NULL, 0},
+        data_to_send: {NULL, 0},
+        echo_format: NC_NO_ECHO
+        };
     nc_parse_options(nc_options, &options, argc, argv);
-    printf("VERBOSITY %d\n", options.verbose);
+    printf("VERBOSITY %d, timeout %f, sock %d, fmt %d, data [%d]``%.*s''\n",
+        options.verbose, options.timeout,
+        options.socket_type, options.echo_format,
+        options.data_to_send.length, options.data_to_send.length,
+        options.data_to_send.data);
+
 }
