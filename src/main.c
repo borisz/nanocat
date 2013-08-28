@@ -97,6 +97,10 @@ struct nc_option nc_options[] = {
      NC_OPT_DECREMENT, offsetof(nc_options_t, verbose), NULL,
      0, 0, 0,
      "Generic", NULL, "Decrease verbosity of the nanocat"},
+    {"help", 'h', NULL,
+     NC_OPT_HELP, 0, NULL,
+     0, 0, 0,
+     "Generic", NULL, "This help text"},
 
     // Socket types
     {"push", 'p', "nn_push",
@@ -205,4 +209,5 @@ struct nc_option nc_options[] = {
 int main(int argc, char **argv) {
     nc_options_t options;
     nc_parse_options(nc_options, &options, argc, argv);
+    printf("VERBOSITY %d\n", options.verbose);
 }

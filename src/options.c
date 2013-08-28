@@ -23,6 +23,7 @@ static int nc_has_arg(struct nc_option *opt) {
         case NC_OPT_INCREMENT:
         case NC_OPT_DECREMENT:
         case NC_OPT_SET_ENUM:
+        case NC_OPT_HELP:
             return 0;
         case NC_OPT_ENUM:
         case NC_OPT_STRING:
@@ -34,9 +35,31 @@ static int nc_has_arg(struct nc_option *opt) {
     abort();
 }
 
+static void nc_print_help(struct nc_parse_context *ctx, FILE *stream) {
+    fprintf(stream, "Usage:\n");
+}
+
 static void nc_process_option(struct nc_parse_context *ctx,
                               struct nc_option *opt, char *argument) {
     printf("PARSED ``%s'' with arg ``%s''\n", opt->longname, argument);
+    switch(opt->type) {
+        case NC_OPT_INCREMENT:
+            *(int *)(((char *)ctx->target) + opt->offset) += 1;
+            return;
+        case NC_OPT_DECREMENT:
+            *(int *)(((char *)ctx->target) + opt->offset) -= 1;
+            return;
+        case NC_OPT_SET_ENUM:
+            *(int *)(((char *)ctx->target) + opt->offset) = \
+                *(int *)(opt->pointer);
+            return;
+        case NC_OPT_HELP:
+            nc_print_help(ctx, stdout);
+            return;
+        case NC_OPT_STRING:
+            *(char **)(((char *)ctx->target) + opt->offset) = argument;
+            return;
+    }
 }
 
 static void nc_parse_arg0(struct nc_parse_context *ctx) {

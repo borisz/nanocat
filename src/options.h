@@ -2,6 +2,7 @@
 #define NC_OPTIONS_HEADER
 
 enum nc_option_type {
+    NC_OPT_HELP,
     NC_OPT_INCREMENT,
     NC_OPT_DECREMENT,
     NC_OPT_ENUM,
@@ -20,7 +21,7 @@ struct nc_option {
 
     //  Parsing specification
     enum nc_option_type type;
-    int option_position;  // offsetof() where to store the value
+    int offset;  // offsetof() where to store the value
     const void *pointer;  // type specific pointer
 
     //  Conflict mask for options
