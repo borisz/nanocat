@@ -3,6 +3,7 @@
 
 enum nc_option_type {
     NC_OPT_HELP,
+    NC_OPT_INT,
     NC_OPT_INCREMENT,
     NC_OPT_DECREMENT,
     NC_OPT_ENUM,
@@ -15,22 +16,22 @@ enum nc_option_type {
 };
 
 struct nc_option {
-    //  Option names
+    /*  Option names  */
     char *longname;
     char shortname;
     char *arg0name;
 
-    //  Parsing specification
+    /*  Parsing specification  */
     enum nc_option_type type;
-    int offset;  // offsetof() where to store the value
-    const void *pointer;  // type specific pointer
+    int offset;  /*  offsetof() where to store the value  */
+    const void *pointer;  /*  type specific pointer  */
 
-    //  Conflict mask for options
+    /*  Conflict mask for options  */
     unsigned long mask_set;
     unsigned long conflicts_mask;
     unsigned long requires_mask;
 
-    //  Group and description for --help
+    /*  Group and description for --help  */
     char *group;
     char *metavar;
     char *description;
@@ -63,4 +64,4 @@ void nc_parse_options(struct nc_commandline *cline,
                       void *target, int argc, char **argv);
 
 
-#endif  // NC_OPTIONS_HEADER
+#endif  /* NC_OPTIONS_HEADER */

@@ -8,7 +8,7 @@
 #include "options.h"
 
 struct nc_parse_context {
-    //  Initial state
+    /*  Initial state  */
     struct nc_commandline *def;
     struct nc_option *options;
     void *target;
@@ -16,7 +16,7 @@ struct nc_parse_context {
     char **argv;
     unsigned long requires;
 
-    //  Current values
+    /*  Current values  */
     unsigned long mask;
     int args_left;
     char **arg;
@@ -35,6 +35,7 @@ static int nc_has_arg(struct nc_option *opt) {
         case NC_OPT_STRING:
         case NC_OPT_BLOB:
         case NC_OPT_FLOAT:
+        case NC_OPT_INT:
         case NC_OPT_STRING_LIST:
         case NC_OPT_READ_FILE:
             return 1;
@@ -49,7 +50,7 @@ static void nc_print_usage(struct nc_parse_context *ctx, FILE *stream) {
 
     fprintf(stream, "    %s ", ctx->argv[0]);
 
-    // Print required options (long names)
+    /* Print required options (long names)  */
     first = 1;
     for(i = 0;; ++i) {
         opt = &ctx->options[i];
@@ -68,14 +69,14 @@ static void nc_print_usage(struct nc_parse_context *ctx, FILE *stream) {
         fprintf(stream, "} ");
     }
 
-    // Print flag short options
+    /* Print flag short options */
     first = 1;
     for(i = 0;; ++i) {
         opt = &ctx->options[i];
         if(!opt->longname)
             break;
         if(opt->mask_set & ctx->requires)
-            continue;  // already printed
+            continue;  /* already printed */
         if(opt->shortname && !nc_has_arg(opt)) {
             if(first) {
                 first = 0;
@@ -89,19 +90,19 @@ static void nc_print_usage(struct nc_parse_context *ctx, FILE *stream) {
         fprintf(stream, "] ");
     }
 
-    // Print short options with arguments
+    /* Print short options with arguments */
     for(i = 0;; ++i) {
         opt = &ctx->options[i];
         if(!opt->longname)
             break;
         if(opt->mask_set & ctx->requires)
-            continue;  // already printed
+            continue;  /* already printed */
         if(opt->shortname && nc_has_arg(opt) && opt->metavar) {
             fprintf(stream, "[-%c %s] ", opt->shortname, opt->metavar);
         }
     }
 
-    fprintf(stream, "[options] \n");  // There may be long options too
+    fprintf(stream, "[options] \n");  /* There may be long options too */
 }
 
 static char *nc_print_line(FILE *out, char *str, int width) {
@@ -115,7 +116,7 @@ static char *nc_print_line(FILE *out, char *str, int width) {
             fprintf(out, "%.*s", i, str);
             return str + i + 1;
         }
-    }  // no break points, just print as is
+    }  /* no break points, just print as is */
     fprintf(out, "%s", str);
     return "";
 }
@@ -182,7 +183,7 @@ static void nc_print_option(struct nc_parse_context *ctx, int opt_index,
 
     opt = &ctx->options[opt_index];
     ousage = ctx->last_option_usage[opt_index];
-    if(*ousage == '-') {  // Long option
+    if(*ousage == '-') {  /* Long option */
         oend = strchr(ousage, '=');
         if(!oend) {
             olen = strlen(ousage);
@@ -195,9 +196,9 @@ static void nc_print_option(struct nc_parse_context *ctx, int opt_index,
         } else {
             fprintf(stream, " %s ", ousage);
         }
-    } else if(ousage == ctx->argv[0]) {  // Binary name
+    } else if(ousage == ctx->argv[0]) {  /* Binary name */
         fprintf(stream, " %s (executable) ", ousage);
-    } else {  // Short option
+    } else {  /* Short option */
         fprintf(stream, " -%c (--%s) ",
             *ousage, opt->longname);
     }
@@ -322,6 +323,14 @@ static void nc_process_option(struct nc_parse_context *ctx,
             nc_print_help(ctx, stdout);
             exit(0);
             return;
+        case NC_OPT_INT:
+            *(long *)(((char *)ctx->target) + opt->offset) = strtol(argument,
+                &endptr, 0);
+            if(endptr == argument || *endptr != 0) {
+                nc_option_error("requires integer argument",
+                                ctx, opt_index);
+            }
+            return;
         case NC_OPT_INCREMENT:
             *(int *)(((char *)ctx->target) + opt->offset) += 1;
             return;
@@ -399,9 +408,9 @@ static void nc_process_option(struct nc_parse_context *ctx,
                     break;
                 if(data_buf - data_len < 1024) {
                     if(data_buf < (1 << 20)) {
-                        data_buf *= 2;  // grow twice until not too big
+                        data_buf *= 2;  /* grow twice until not too big */
                     } else {
-                        data_buf += 1 << 20;  // grow 1 Mb each time
+                        data_buf += 1 << 20;  /* grow 1 Mb each time */
                     }
                     data = realloc(data, data_buf);
                     if(!data)
@@ -454,7 +463,7 @@ static void nc_error_ambiguous_option(struct nc_parse_context *ctx) {
     fprintf(stderr, "%s: Ambiguous option ``%s'':\n", ctx->argv[0], ctx->data);
     for(opt = ctx->options; opt->longname; ++opt) {
         for(a = opt->longname, b = arg; ; ++a, ++b) {
-            if(*b == 0 || *b == '=') {  // End of option on command-line
+            if(*b == 0 || *b == '=') {  /* End of option on command-line */
                 fprintf(stderr, "    %s\n", opt->longname);
                 break;
             } else if(*b != *a) {
@@ -506,15 +515,15 @@ static void nc_parse_long_option(struct nc_parse_context *ctx) {
         if(!opt->longname)
             break;
         for(a = opt->longname, b = arg;; ++a, ++b) {
-            if(*b == 0 || *b == '=') {  // End of option on command-line
+            if(*b == 0 || *b == '=') {  /* End of option on command-line */
                 cur_prefix = a - opt->longname;
-                if(!*a) {  // Matches end of option name
+                if(!*a) {  /* Matches end of option name */
                     best_match = i;
                     longest_prefix = cur_prefix;
                     goto finish;
                 }
                 if(cur_prefix == longest_prefix) {
-                    best_match = -1;  // Ambiguity
+                    best_match = -1;  /* Ambiguity */
                 } else if(cur_prefix > longest_prefix) {
                     best_match = i;
                     longest_prefix = cur_prefix;
@@ -575,7 +584,7 @@ static void nc_parse_short_option(struct nc_parse_context *ctx) {
                         nc_option_error("requires an argument", ctx, i);
                     }
                 }
-                ctx->data = "";  // end of short options anyway
+                ctx->data = "";  /* end of short options anyway */
             } else {
                 nc_process_option(ctx, i, NULL);
                 ctx->data += 1;
@@ -588,14 +597,14 @@ static void nc_parse_short_option(struct nc_parse_context *ctx) {
 
 
 static void nc_parse_arg(struct nc_parse_context *ctx) {
-    if(ctx->data[0] == '-') {  // an option
-        if(ctx->data[1] == '-') {  // long option
-            if(ctx->data[2] == 0) {  // end of options
+    if(ctx->data[0] == '-') {  /* an option */
+        if(ctx->data[1] == '-') {  /* long option */
+            if(ctx->data[2] == 0) {  /* end of options */
                 return;
             }
             nc_parse_long_option(ctx);
         } else {
-            ctx->data += 1;  // Skip minus
+            ctx->data += 1;  /* Skip minus */
             while(*ctx->data) {
                 nc_parse_short_option(ctx);
             }

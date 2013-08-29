@@ -10,4 +10,4 @@ add_executable (nanocat
 
 pkg_search_module(NANOMSG REQUIRED nanomsg)
 target_link_libraries(nanocat nanomsg)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${NANOMSG_CFLAGS} -std=c99 -Wall")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${NANOMSG_CFLAGS} -std=c99 -Wpedantic -Wall")

@@ -10,6 +10,7 @@
 #include <string.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "options.h"
 
@@ -22,10 +23,10 @@ enum echo_format {
 };
 
 typedef struct nc_options {
-    // Global options
+    /* Global options */
     int verbose;
 
-    // Socket options
+    /* Socket options */
     int socket_type;
     struct nc_string_list bind_addresses;
     struct nc_string_list connect_addresses;
@@ -33,14 +34,16 @@ typedef struct nc_options {
     float recv_timeout;
     struct nc_string_list subscriptions;
 
-    // Data options
+    /* Output options */
+    float send_period;
     struct nc_blob data_to_send;
 
-    // Echo options
+    /* Input options */
     enum echo_format echo_format;
+    long input_buffer;
 } nc_options_t;
 
-//  Constants to get address of in option declaration
+/*  Constants to get address of in option declaration  */
 static const int nn_push = NN_PUSH;
 static const int nn_pull = NN_PULL;
 static const int nn_pub = NN_PUB;
@@ -68,7 +71,7 @@ struct nc_enum_item socket_types[] = {
 };
 
 
-//  Constants to get address of in option declaration
+/*  Constants to get address of in option declaration  */
 static const int nc_echo_raw = NC_ECHO_RAW;
 static const int nc_echo_ascii = NC_ECHO_ASCII;
 static const int nc_echo_quoted = NC_ECHO_QUOTED;
@@ -83,7 +86,7 @@ struct nc_enum_item echo_formats[] = {
     {NULL, 0},
 };
 
-//  Constants for conflict masks
+/*  Constants for conflict masks  */
 #define NC_MASK_SOCK 1
 #define NC_MASK_WRITEABLE 2
 #define NC_MASK_READABLE 4
@@ -97,7 +100,7 @@ struct nc_enum_item echo_formats[] = {
 #define NC_MASK_SOCK_READWRITE  (NC_MASK_SOCK_WRITEABLE|NC_MASK_SOCK_READABLE)
 
 struct nc_option nc_options[] = {
-    // Generic options
+    /* Generic options */
     {"verbose", 'v', NULL,
      NC_OPT_INCREMENT, offsetof(nc_options_t, verbose), NULL,
      NC_NO_PROVIDES, NC_NO_CONFLICTS, NC_NO_REQUIRES,
@@ -111,7 +114,7 @@ struct nc_option nc_options[] = {
      NC_NO_PROVIDES, NC_NO_CONFLICTS, NC_NO_REQUIRES,
      "Generic", NULL, "This help text"},
 
-    // Socket types
+    /* Socket types */
     {"push", 'p', "nn_push",
      NC_OPT_SET_ENUM, offsetof(nc_options_t, socket_type), &nn_push,
      NC_MASK_SOCK_WRITEABLE, NC_MASK_SOCK, NC_NO_REQUIRES,
@@ -145,7 +148,7 @@ struct nc_option nc_options[] = {
      NC_MASK_SOCK_READWRITE, NC_MASK_SOCK, NC_NO_REQUIRES,
      "Socket Types", NULL, "Use NN_RESPONDENT socket type"},
 
-    // Socket Options
+    /* Socket Options */
     {"bind", 'b' , NULL,
      NC_OPT_STRING_LIST, offsetof(nc_options_t, bind_addresses), NULL,
      NC_NO_PROVIDES, NC_NO_CONFLICTS, NC_NO_REQUIRES,
@@ -163,7 +166,7 @@ struct nc_option nc_options[] = {
      NC_NO_PROVIDES, NC_NO_CONFLICTS, NC_MASK_WRITEABLE,
      "Socket Options", "SEC", "Set timeout for sending a message"},
 
-    // Pattern-specific options
+    /* Pattern-specific options */
     {"subscribe", 0, NULL,
      NC_OPT_STRING_LIST, offsetof(nc_options_t, subscriptions), NULL,
      NC_NO_PROVIDES, NC_NO_CONFLICTS, NC_MASK_SOCK_SUB,
@@ -171,46 +174,55 @@ struct nc_option nc_options[] = {
         "Note: socket will be subscribed to everything (empty prefix) if "
         "no prefixes are specified on the command-line."},
 
-    // Echo Options
+    /* Input Options */
     {"format", 'f', NULL,
      NC_OPT_ENUM, offsetof(nc_options_t, echo_format), &echo_formats,
      NC_NO_PROVIDES, NC_NO_CONFLICTS, NC_MASK_READABLE,
-     "Echo Options", "FORMAT", "Use echo format FORMAT "
+     "Input Options", "FORMAT", "Use echo format FORMAT "
                                "(same as the options below)"},
     {"raw", 0, NULL,
      NC_OPT_SET_ENUM, offsetof(nc_options_t, echo_format), &nc_echo_raw,
      NC_NO_PROVIDES, NC_NO_CONFLICTS, NC_MASK_READABLE,
-     "Echo Options", NULL, "Dump message as is "
+     "Input Options", NULL, "Dump message as is "
                            "(Note: no delimiters are printed)"},
     {"ascii", 'L', NULL,
      NC_OPT_SET_ENUM, offsetof(nc_options_t, echo_format), &nc_echo_ascii,
      NC_NO_PROVIDES, NC_NO_CONFLICTS, NC_MASK_READABLE,
-     "Echo Options", NULL, "Print ASCII part of message delimited by newline. "
+     "Input Options", NULL, "Print ASCII part of message delimited by newline. "
                            "All non-ascii characters replaced by dot."},
     {"quoted", 'Q', NULL,
      NC_OPT_SET_ENUM, offsetof(nc_options_t, echo_format), &nc_echo_quoted,
      NC_NO_PROVIDES, NC_NO_CONFLICTS, NC_MASK_READABLE,
-     "Echo Options", NULL, "Print each message on separate line in double "
+     "Input Options", NULL, "Print each message on separate line in double "
                            "quotes with C-like character escaping"},
     {"msgpack", 0, NULL,
      NC_OPT_SET_ENUM, offsetof(nc_options_t, echo_format), &nc_echo_msgpack,
      NC_NO_PROVIDES, NC_NO_CONFLICTS, NC_MASK_READABLE,
-     "Echo Options", NULL, "Print each message as msgpacked string (raw type)."
+     "Input Options", NULL, "Print each message as msgpacked string (raw type)."
                            " This is useful for programmatic parsing."},
+    {"input-buffer", 0, NULL,
+     NC_OPT_INT, offsetof(nc_options_t, input_buffer), NULL,
+     NC_NO_PROVIDES, NC_NO_CONFLICTS, NC_MASK_READABLE,
+     "Input Options", NULL, "Set input buffer size "
+                           "(limits maximum message size printed)"},
 
-    // Input Options
+    /* Output Options */
+    {"period", 'p', NULL,
+     NC_OPT_FLOAT, offsetof(nc_options_t, send_period), NULL,
+     NC_NO_PROVIDES, NC_NO_CONFLICTS, NC_MASK_WRITEABLE,
+     "Output Options", "SEC", "Send message (or request) every SEC seconds"},
     {"data", 'D', NULL,
      NC_OPT_BLOB, offsetof(nc_options_t, data_to_send), &echo_formats,
      NC_MASK_DATA, NC_MASK_DATA, NC_MASK_WRITEABLE,
-     "Data Options", "DATA", "Send DATA to the socket and quit for "
-     "PUB, PUSH, PAIR socket. Use DATA to reply for REP or RESPONDENT socket. "
-     "Send DATA as request for REQ or SURVEYOR socket. "},
+     "Output Options", "DATA", "Send DATA to the socket and quit for "
+     "PUB, PUSH, PAIR, BUS socket. Use DATA to reply for REP or "
+     " RESPONDENT socket. Send DATA as request for REQ or SURVEYOR socket."},
     {"file", 'F', NULL,
      NC_OPT_READ_FILE, offsetof(nc_options_t, data_to_send), &echo_formats,
      NC_MASK_DATA, NC_MASK_DATA, NC_MASK_WRITEABLE,
-     "Data Options", "PATH", "Same as --data but get data from file PATH"},
+     "Output Options", "PATH", "Same as --data but get data from file PATH"},
 
-    // Sentinel
+    /* Sentinel */
     {NULL}
     };
 
@@ -257,7 +269,7 @@ int nc_create_socket(nc_options_t *options) {
     sock = nn_socket(AF_SP, options->socket_type);
     nc_assert_errno(sock >= 0, "Can't create socket");
 
-    // Generic initialization
+    /* Generic initialization */
     if(options->send_timeout >= 0) {
         millis = (int)(options->send_timeout * 1000);
         rc = nn_setsockopt(sock, NN_SOL_SOCKET, NN_SNDTIMEO,
@@ -271,7 +283,7 @@ int nc_create_socket(nc_options_t *options) {
         nc_assert_errno(rc == 0, "Can't set recv timeout");
     }
 
-    // Specific intitalization
+    /* Specific intitalization */
     switch(options->socket_type) {
     case NN_SUB:
         nc_sub_init(options, sock);
@@ -295,6 +307,41 @@ void nc_connect_socket(nc_options_t *options, int sock) {
     }
 }
 
+void nn_send_loop(nc_options_t *options, int sock) {
+    int rc;
+
+    for(;;) {
+        rc = nn_send(sock,
+            options->data_to_send.data, options->data_to_send.length,
+            0);
+        if(rc < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+            fprintf(stderr, "Message not sent (EAGAIN)\n");
+        } else {
+            nc_assert_errno(rc >= 0, "Can't send");
+        }
+        if(options->send_period) {
+            nanosleep((unsigned int)(options->send_period*1000000));
+        } else {
+            break;
+        }
+    }
+}
+
+void nn_recv_loop(nc_options_t *options, int sock) {
+    int rc;
+    int buflen = options->input_buffer;
+    char buf[buflen];
+
+    for(;;) {
+        rc = nn_recv(sock, buf, buflen, 0);
+        if(rc < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+            continue;
+        } else {
+            nc_assert_errno(rc >= 0, "Can't send");
+        }
+    }
+}
+
 int main(int argc, char **argv) {
     int sock;
     nc_options_t options = {
@@ -303,6 +350,7 @@ int main(int argc, char **argv) {
         .bind_addresses = {NULL, 0},
         .connect_addresses = {NULL, 0},
         .send_timeout = -1.f,
+        .send_period = -1.f,
         .recv_timeout = -1.f,
         .subscriptions = {NULL, 0},
         .data_to_send = {NULL, 0},
@@ -312,6 +360,29 @@ int main(int argc, char **argv) {
     nc_parse_options(&nc_cli, &options, argc, argv);
     sock = nc_create_socket(&options);
     nc_connect_socket(&options, sock);
-//    nc_loop(&options, sock);
+
+    switch(options.socket_type) {
+    case NN_PUB:
+    case NN_PUSH:
+        nn_send_loop(&options, sock);
+        break;
+    case NN_SUB:
+    case NN_PULL:
+        nn_recv_loop(&options, sock);
+        break;
+    case NN_BUS:
+    case NN_PAIR:
+    case NN_SURVEYOR:
+        nn_rw_loop(&options, sock);
+        break;
+    case NN_REQ:
+        nn_req_loop(&options, sock);
+        break;
+    case NN_REP:
+    case NN_RESPONDENT:
+        nn_resp_loop(&options, sock);
+        break;
+    }
+
     nn_close(sock);
 }
