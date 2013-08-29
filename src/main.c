@@ -235,7 +235,7 @@ void nc_assert_errno(int flag, char *description) {
     if(!flag) {
         int err = errno;
         fprintf(stderr, description);
-        fprintf(stderr, ": %s\n", strerror(err));
+        fprintf(stderr, ": %s\n", nn_strerror(err));
         exit(3);
     }
 }
@@ -406,7 +406,7 @@ void nc_send_loop(nc_options_t *options, int sock) {
             nc_assert_errno(rc >= 0, "Can't send");
         }
         if(options->send_period >= 0) {
-            time_to_sleep = nc_time() - (start_time + options->send_period);
+            time_to_sleep = (start_time + options->send_period) - nc_time();
             if(time_to_sleep > 0) {
                 nc_sleep(time_to_sleep);
             }
@@ -424,6 +424,8 @@ void nc_recv_loop(nc_options_t *options, int sock) {
         rc = nn_recv(sock, &buf, NN_MSG, 0);
         if(rc < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
             continue;
+        } else if(errno == ETIMEDOUT || errno == EFSM) {
+            return;  /*  No more messages possible  */
         } else {
             nc_assert_errno(rc >= 0, "Can't recv");
         }
@@ -453,7 +455,7 @@ void nc_rw_loop(nc_options_t *options, int sock) {
         }
 
         for(;;) {
-            time_to_sleep = nc_time() - (start_time + options->send_period);
+            time_to_sleep = (start_time + options->send_period) - nc_time();
             if(time_to_sleep <= 0) {
                 break;
             }
@@ -467,7 +469,7 @@ void nc_rw_loop(nc_options_t *options, int sock) {
             if(rc < 0) {
                 if(errno == EAGAIN || errno == EWOULDBLOCK) {
                     continue;
-                } else if(errno == ETIMEDOUT) {
+                } else if(errno == ETIMEDOUT || errno == EFSM) {
                     time_to_sleep = nc_time() - \
                         (start_time + options->send_period);
                     if(time_to_sleep > 0)
