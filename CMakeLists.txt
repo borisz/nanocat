@@ -7,6 +7,7 @@ add_executable (nanocat
     src/main.c
     src/options.c
     )
+install (PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/nanocat DESTINATION bin)
 
 
 pkg_search_module(NANOMSG REQUIRED nanomsg)
