@@ -624,15 +624,16 @@ void nc_check_requires(struct nc_parse_context *ctx) {
             break;
         if(!ctx->last_option_usage[i])
             continue;
-        if(opt->requires_mask && !(opt->requires_mask & ctx->mask)) {
+        if(opt->requires_mask &&
+            (opt->requires_mask & ctx->mask) != opt->requires_mask) {
             nc_option_requires(ctx, i);
         }
     }
 
-    if(!(ctx->requires & ctx->mask)) {
+    if((ctx->requires & ctx->mask) != ctx->requires) {
         fprintf(stderr, "%s: At least one of the following required:\n",
             ctx->argv[0]);
-        nc_print_requires(ctx, ctx->requires);
+        nc_print_requires(ctx, ctx->requires & ~ctx->mask);
         exit(1);
     }
 }

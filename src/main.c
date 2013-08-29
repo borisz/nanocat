@@ -93,6 +93,7 @@ struct nc_enum_item echo_formats[] = {
 #define NC_MASK_READABLE 4
 #define NC_MASK_SOCK_SUB 8
 #define NC_MASK_DATA 16
+#define NC_MASK_ENDPOINT 32
 #define NC_NO_PROVIDES 0
 #define NC_NO_CONFLICTS 0
 #define NC_NO_REQUIRES 0
@@ -160,11 +161,11 @@ struct nc_option nc_options[] = {
     /* Socket Options */
     {"bind", 'b' , NULL,
      NC_OPT_STRING_LIST, offsetof(nc_options_t, bind_addresses), NULL,
-     NC_NO_PROVIDES, NC_NO_CONFLICTS, NC_NO_REQUIRES,
+     NC_MASK_ENDPOINT, NC_NO_CONFLICTS, NC_NO_REQUIRES,
      "Socket Options", "ADDR", "Bind socket to the address ADDR"},
     {"connect", 'c' , NULL,
      NC_OPT_STRING_LIST, offsetof(nc_options_t, connect_addresses), NULL,
-     NC_NO_PROVIDES, NC_NO_CONFLICTS, NC_NO_REQUIRES,
+     NC_MASK_ENDPOINT, NC_NO_CONFLICTS, NC_NO_REQUIRES,
      "Socket Options", "ADDR", "Connect socket to the address ADDR"},
     {"recv-timeout", 't', NULL,
      NC_OPT_FLOAT, offsetof(nc_options_t, recv_timeout), NULL,
@@ -235,7 +236,7 @@ struct nc_commandline nc_cli = {
     .short_description = "A command-line interface to nanomsg",
     .long_description = "",
     .options = nc_options,
-    .required_options = NC_MASK_SOCK,
+    .required_options = NC_MASK_SOCK | NC_MASK_ENDPOINT,
     };
 
 
