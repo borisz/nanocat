@@ -148,6 +148,14 @@ struct nc_option nc_options[] = {
      NC_OPT_SET_ENUM, offsetof(nc_options_t, socket_type), &nn_respondent,
      NC_MASK_SOCK_READWRITE, NC_MASK_SOCK, NC_NO_REQUIRES,
      "Socket Types", NULL, "Use NN_RESPONDENT socket type"},
+    {"bus", 'B', "nn_bus",
+     NC_OPT_SET_ENUM, offsetof(nc_options_t, socket_type), &nn_bus,
+     NC_MASK_SOCK_READWRITE, NC_MASK_SOCK, NC_NO_REQUIRES,
+     "Socket Types", NULL, "Use NN_BUS socket type"},
+    {"pair", 'a', "nn_pair",
+     NC_OPT_SET_ENUM, offsetof(nc_options_t, socket_type), &nn_pair,
+     NC_MASK_SOCK_READWRITE, NC_MASK_SOCK, NC_NO_REQUIRES,
+     "Socket Types", NULL, "Use NN_PAIR socket type"},
 
     /* Socket Options */
     {"bind", 'b' , NULL,
