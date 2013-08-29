@@ -478,8 +478,9 @@ static void nc_error_unknown_long_option(struct nc_parse_context *ctx) {
     exit(1);
 }
 
-static void nc_error_invalid_argument(struct nc_parse_context *ctx) {
-    fprintf(stderr, "%s: Invalid argument ``%s''\n", ctx->argv[0], ctx->data);
+static void nc_error_unexpected_argument(struct nc_parse_context *ctx) {
+    fprintf(stderr, "%s: Unexpected argument ``%s''\n",
+        ctx->argv[0], ctx->data);
     exit(1);
 }
 
@@ -609,7 +610,7 @@ static void nc_parse_arg(struct nc_parse_context *ctx) {
             }
         }
     } else {
-        nc_error_invalid_argument(ctx);
+        nc_error_unexpected_argument(ctx);
     }
 }
 
