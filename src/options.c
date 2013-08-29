@@ -402,7 +402,6 @@ static void nc_process_option(struct nc_parse_context *ctx,
             for(;;) {
                 bytes_read = fread(data + data_len, 1, data_buf - data_len,
                                    file);
-                printf("DATALEN %d\n", bytes_read);
                 data_len += bytes_read;
                 if(feof(file))
                     break;

@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <time.h>
+#include <ctype.h>
 
 #include "options.h"
 
@@ -41,7 +42,6 @@ typedef struct nc_options {
 
     /* Input options */
     enum echo_format echo_format;
-    long input_buffer;
 } nc_options_t;
 
 /*  Constants to get address of in option declaration  */
@@ -201,11 +201,6 @@ struct nc_option nc_options[] = {
      NC_NO_PROVIDES, NC_NO_CONFLICTS, NC_MASK_READABLE,
      "Input Options", NULL, "Print each message as msgpacked string (raw type)."
                            " This is useful for programmatic parsing."},
-    {"input-buffer", 0, NULL,
-     NC_OPT_INT, offsetof(nc_options_t, input_buffer), NULL,
-     NC_NO_PROVIDES, NC_NO_CONFLICTS, NC_MASK_READABLE,
-     "Input Options", NULL, "Set input buffer size "
-                           "(limits maximum message size printed)"},
 
     /* Output Options */
     {"period", 'p', NULL,
@@ -318,6 +313,70 @@ double nc_time() {
     return ((double)ts.tv_sec) + ts.tv_nsec*0.000000001;
 }
 
+void nc_print_message(nc_options_t *options, char *buf, int buflen) {
+    switch(options->echo_format) {
+    case NC_NO_ECHO:
+        return;
+    case NC_ECHO_RAW:
+        fwrite(buf, 1, buflen, stdout);
+        break;
+    case NC_ECHO_ASCII:
+        for(; buflen > 0; --buflen, ++buf) {
+            if(isprint(*buf)) {
+                fputc(*buf, stdout);
+            } else {
+                fputc('.', stdout);
+            }
+        }
+        fputc('\n', stdout);
+        break;
+    case NC_ECHO_QUOTED:
+        fputc('"', stdout);
+        for(; buflen > 0; --buflen, ++buf) {
+            switch(*buf) {
+            case '\n':
+                fprintf(stdout, "\\n");
+                break;
+            case '\r':
+                fprintf(stdout, "\\r");
+                break;
+            case '\\':
+            case '\"':
+                fprintf(stdout, "\\%c", *buf);
+                break;
+            default:
+                if(isprint(*buf)) {
+                    fputc(*buf, stdout);
+                } else {
+                    fprintf(stdout, "\\x%02x", *buf);
+                }
+            }
+        }
+        fprintf(stdout, "\"\n");
+        break;
+    case NC_ECHO_MSGPACK:
+        if(buflen < 256) {
+            fputc('\xc4', stdout);
+            fputc(buflen, stdout);
+            fwrite(buf, 1, buflen, stdout);
+        } else if(buflen < 65536) {
+            fputc('\xc5', stdout);
+            fputc(buflen >> 8, stdout);
+            fputc(buflen & 0xff, stdout);
+            fwrite(buf, 1, buflen, stdout);
+        } else {
+            fputc('\xc6', stdout);
+            fputc(buflen >> 24, stdout);
+            fputc((buflen >> 16) & 0xff, stdout);
+            fputc((buflen >> 8) & 0xff, stdout);
+            fputc(buflen & 0xff, stdout);
+            fwrite(buf, 1, buflen, stdout);
+        }
+        break;
+    }
+    fflush(stdout);
+}
+
 void nc_connect_socket(nc_options_t *options, int sock) {
     int i;
     int rc;
@@ -359,23 +418,23 @@ void nc_send_loop(nc_options_t *options, int sock) {
 
 void nc_recv_loop(nc_options_t *options, int sock) {
     int rc;
-    int buflen = options->input_buffer;
-    char buf[buflen];
+    void *buf;
 
     for(;;) {
-        rc = nn_recv(sock, buf, buflen, 0);
+        rc = nn_recv(sock, &buf, NN_MSG, 0);
         if(rc < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
             continue;
         } else {
             nc_assert_errno(rc >= 0, "Can't recv");
         }
+        nc_print_message(options, buf, rc);
+        nn_freemsg(buf);
     }
 }
 
 void nc_rw_loop(nc_options_t *options, int sock) {
     int rc;
-    int buflen = options->input_buffer;
-    char buf[buflen];
+    void *buf;
     double start_time, time_to_sleep;
 
     for(;;) {
@@ -404,7 +463,7 @@ void nc_rw_loop(nc_options_t *options, int sock) {
                 time_to_sleep = options->recv_timeout;
             }
             nc_set_recv_timeout(sock, time_to_sleep);
-            rc = nn_recv(sock, buf, buflen, 0);
+            rc = nn_recv(sock, &buf, NN_MSG, 0);
             if(rc < 0) {
                 if(errno == EAGAIN || errno == EWOULDBLOCK) {
                     continue;
@@ -417,22 +476,25 @@ void nc_rw_loop(nc_options_t *options, int sock) {
                 }
             }
             nc_assert_errno(rc >= 0, "Can't recv");
+            nc_print_message(options, buf, rc);
+            nn_freemsg(buf);
         }
     }
 }
 
 void nc_resp_loop(nc_options_t *options, int sock) {
     int rc;
-    int buflen = options->input_buffer;
-    char buf[buflen];
+    void *buf;
 
     for(;;) {
-        rc = nn_recv(sock, buf, buflen, 0);
+        rc = nn_recv(sock, &buf, NN_MSG, 0);
         if(rc < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
                 continue;
         } else {
             nc_assert_errno(rc >= 0, "Can't recv");
         }
+        nc_print_message(options, buf, rc);
+        nn_freemsg(buf);
         rc = nn_send(sock,
             options->data_to_send.data, options->data_to_send.length,
             0);
