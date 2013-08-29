@@ -11,6 +11,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <time.h>
 
 #include "options.h"
 
@@ -261,6 +262,14 @@ void nc_sub_init(nc_options_t *options, int sock) {
     }
 }
 
+void nc_set_recv_timeout(int sock, double timeo) {
+    int millis, rc;
+    millis = (int)(timeo * 1000);
+    rc = nn_setsockopt(sock, NN_SOL_SOCKET, NN_RCVTIMEO,
+                       &millis, sizeof(millis));
+    nc_assert_errno(rc == 0, "Can't set recv timeout");
+}
+
 int nc_create_socket(nc_options_t *options) {
     int sock;
     int rc;
@@ -277,10 +286,7 @@ int nc_create_socket(nc_options_t *options) {
         nc_assert_errno(rc == 0, "Can't set send timeout");
     }
     if(options->recv_timeout >= 0) {
-        millis = (int)(options->recv_timeout * 1000);
-        rc = nn_setsockopt(sock, NN_SOL_SOCKET, NN_RCVTIMEO,
-                           &millis, sizeof(millis));
-        nc_assert_errno(rc == 0, "Can't set recv timeout");
+        nc_set_recv_timeout(sock, options->recv_timeout);
     }
 
     /* Specific intitalization */
@@ -291,6 +297,25 @@ int nc_create_socket(nc_options_t *options) {
     }
 
     return sock;
+}
+
+void nc_sleep(double seconds) {
+    struct timespec ts;
+    int rc;
+
+    ts.tv_sec = (time_t)seconds;
+    ts.tv_nsec = (seconds - (time_t)seconds)*1000000000;
+    rc = nanosleep(&ts, NULL);
+    nc_assert_errno(rc == 0, "Failed to sleep");
+}
+
+double nc_time() {
+    struct timespec ts;
+    int rc;
+
+    rc = clock_gettime(CLOCK_MONOTONIC, &ts);
+    nc_assert_errno(rc == 0, "Can't get current time");
+    return ((double)ts.tv_sec) + ts.tv_nsec*0.000000001;
 }
 
 void nc_connect_socket(nc_options_t *options, int sock) {
@@ -307,10 +332,12 @@ void nc_connect_socket(nc_options_t *options, int sock) {
     }
 }
 
-void nn_send_loop(nc_options_t *options, int sock) {
+void nc_send_loop(nc_options_t *options, int sock) {
     int rc;
+    double start_time, time_to_sleep;
 
     for(;;) {
+        start_time = nc_time();
         rc = nn_send(sock,
             options->data_to_send.data, options->data_to_send.length,
             0);
@@ -319,15 +346,18 @@ void nn_send_loop(nc_options_t *options, int sock) {
         } else {
             nc_assert_errno(rc >= 0, "Can't send");
         }
-        if(options->send_period) {
-            nanosleep((unsigned int)(options->send_period*1000000));
+        if(options->send_period >= 0) {
+            time_to_sleep = nc_time() - (start_time + options->send_period);
+            if(time_to_sleep > 0) {
+                nc_sleep(time_to_sleep);
+            }
         } else {
             break;
         }
     }
 }
 
-void nn_recv_loop(nc_options_t *options, int sock) {
+void nc_recv_loop(nc_options_t *options, int sock) {
     int rc;
     int buflen = options->input_buffer;
     char buf[buflen];
@@ -336,6 +366,78 @@ void nn_recv_loop(nc_options_t *options, int sock) {
         rc = nn_recv(sock, buf, buflen, 0);
         if(rc < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
             continue;
+        } else {
+            nc_assert_errno(rc >= 0, "Can't recv");
+        }
+    }
+}
+
+void nc_rw_loop(nc_options_t *options, int sock) {
+    int rc;
+    int buflen = options->input_buffer;
+    char buf[buflen];
+    double start_time, time_to_sleep;
+
+    for(;;) {
+        start_time = nc_time();
+        rc = nn_send(sock,
+            options->data_to_send.data, options->data_to_send.length,
+            0);
+        if(rc < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+            fprintf(stderr, "Message not sent (EAGAIN)\n");
+        } else {
+            nc_assert_errno(rc >= 0, "Can't send");
+        }
+        if(options->send_period < 0) {  /*  Never send any more  */
+            nc_recv_loop(options, sock);
+            return;
+        }
+
+        for(;;) {
+            time_to_sleep = nc_time() - (start_time + options->send_period);
+            if(time_to_sleep <= 0) {
+                break;
+            }
+            if(options->recv_timeout >= 0 &&
+                time_to_sleep > options->recv_timeout)
+            {
+                time_to_sleep = options->recv_timeout;
+            }
+            nc_set_recv_timeout(sock, time_to_sleep);
+            rc = nn_recv(sock, buf, buflen, 0);
+            if(rc < 0) {
+                if(errno == EAGAIN || errno == EWOULDBLOCK) {
+                    continue;
+                } else if(errno == ETIMEDOUT) {
+                    time_to_sleep = nc_time() - \
+                        (start_time + options->send_period);
+                    if(time_to_sleep > 0)
+                        nc_sleep(time_to_sleep);
+                    continue;
+                }
+            }
+            nc_assert_errno(rc >= 0, "Can't recv");
+        }
+    }
+}
+
+void nc_resp_loop(nc_options_t *options, int sock) {
+    int rc;
+    int buflen = options->input_buffer;
+    char buf[buflen];
+
+    for(;;) {
+        rc = nn_recv(sock, buf, buflen, 0);
+        if(rc < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+                continue;
+        } else {
+            nc_assert_errno(rc >= 0, "Can't recv");
+        }
+        rc = nn_send(sock,
+            options->data_to_send.data, options->data_to_send.length,
+            0);
+        if(rc < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+            fprintf(stderr, "Message not sent (EAGAIN)\n");
         } else {
             nc_assert_errno(rc >= 0, "Can't send");
         }
@@ -364,23 +466,31 @@ int main(int argc, char **argv) {
     switch(options.socket_type) {
     case NN_PUB:
     case NN_PUSH:
-        nn_send_loop(&options, sock);
+        nc_send_loop(&options, sock);
         break;
     case NN_SUB:
     case NN_PULL:
-        nn_recv_loop(&options, sock);
+        nc_recv_loop(&options, sock);
         break;
     case NN_BUS:
     case NN_PAIR:
-    case NN_SURVEYOR:
-        nn_rw_loop(&options, sock);
+        if(options.data_to_send.data) {
+            nc_rw_loop(&options, sock);
+        } else {
+            nc_recv_loop(&options, sock);
+        }
         break;
+    case NN_SURVEYOR:
     case NN_REQ:
-        nn_req_loop(&options, sock);
+        nc_rw_loop(&options, sock);
         break;
     case NN_REP:
     case NN_RESPONDENT:
-        nn_resp_loop(&options, sock);
+        if(options.data_to_send.data) {
+            nc_resp_loop(&options, sock);
+        } else {
+            nc_recv_loop(&options, sock);
+        }
         break;
     }
 

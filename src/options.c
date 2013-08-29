@@ -614,7 +614,7 @@ static void nc_parse_arg(struct nc_parse_context *ctx) {
     }
 }
 
-void nn_check_requires(struct nc_parse_context *ctx) {
+void nc_check_requires(struct nc_parse_context *ctx) {
     int i;
     struct nc_option *opt;
 
@@ -624,7 +624,7 @@ void nn_check_requires(struct nc_parse_context *ctx) {
             break;
         if(!ctx->last_option_usage[i])
             continue;
-        if(opt->requires_mask && opt->requires_mask & ctx->mask) {
+        if(opt->requires_mask && !(opt->requires_mask & ctx->mask)) {
             nc_option_requires(ctx, i);
         }
     }
@@ -655,16 +655,17 @@ void nc_parse_options(struct nc_commandline *cline,
     if(!ctx.last_option_usage)
         nc_memory_error(&ctx);
 
-    nc_parse_arg0(&ctx);
-
+    ctx.mask = 0;
     ctx.args_left = argc - 1;
     ctx.arg = argv;
+
+    nc_parse_arg0(&ctx);
 
     while(nc_get_arg(&ctx)) {
         nc_parse_arg(&ctx);
     }
 
-    nn_check_requires(&ctx);
+    nc_check_requires(&ctx);
 
     free(ctx.last_option_usage);
 

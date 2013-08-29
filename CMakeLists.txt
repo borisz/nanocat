@@ -2,6 +2,7 @@ cmake_minimum_required (VERSION 2.6)
 project (nanocat)
 include (FindPkgConfig)
 
+add_definitions (-D_POSIX_C_SOURCE=199309L)
 add_executable (nanocat
     src/main.c
     src/options.c
