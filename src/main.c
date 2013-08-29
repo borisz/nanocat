@@ -37,7 +37,7 @@ typedef struct nc_options {
     struct nc_string_list subscriptions;
 
     /* Output options */
-    float send_period;
+    float send_interval;
     struct nc_blob data_to_send;
 
     /* Input options */
@@ -211,8 +211,8 @@ struct nc_option nc_options[] = {
                            " This is useful for programmatic parsing."},
 
     /* Output Options */
-    {"period", 'p', NULL,
-     NC_OPT_FLOAT, offsetof(nc_options_t, send_period), NULL,
+    {"interval", 'i', NULL,
+     NC_OPT_FLOAT, offsetof(nc_options_t, send_interval), NULL,
      NC_NO_PROVIDES, NC_NO_CONFLICTS, NC_MASK_WRITEABLE,
      "Output Options", "SEC", "Send message (or request) every SEC seconds"},
     {"data", 'D', NULL,
@@ -413,8 +413,8 @@ void nc_send_loop(nc_options_t *options, int sock) {
         } else {
             nc_assert_errno(rc >= 0, "Can't send");
         }
-        if(options->send_period >= 0) {
-            time_to_sleep = (start_time + options->send_period) - nc_time();
+        if(options->send_interval >= 0) {
+            time_to_sleep = (start_time + options->send_interval) - nc_time();
             if(time_to_sleep > 0) {
                 nc_sleep(time_to_sleep);
             }
@@ -457,13 +457,13 @@ void nc_rw_loop(nc_options_t *options, int sock) {
         } else {
             nc_assert_errno(rc >= 0, "Can't send");
         }
-        if(options->send_period < 0) {  /*  Never send any more  */
+        if(options->send_interval < 0) {  /*  Never send any more  */
             nc_recv_loop(options, sock);
             return;
         }
 
         for(;;) {
-            time_to_sleep = (start_time + options->send_period) - nc_time();
+            time_to_sleep = (start_time + options->send_interval) - nc_time();
             if(time_to_sleep <= 0) {
                 break;
             }
@@ -478,7 +478,7 @@ void nc_rw_loop(nc_options_t *options, int sock) {
                 if(errno == EAGAIN || errno == EWOULDBLOCK) {
                     continue;
                 } else if(errno == ETIMEDOUT || errno == EFSM) {
-                    time_to_sleep = (start_time + options->send_period) \
+                    time_to_sleep = (start_time + options->send_interval) \
                         - nc_time();
                     if(time_to_sleep > 0)
                         nc_sleep(time_to_sleep);
@@ -524,7 +524,7 @@ int main(int argc, char **argv) {
         .bind_addresses = {NULL, 0},
         .connect_addresses = {NULL, 0},
         .send_timeout = -1.f,
-        .send_period = -1.f,
+        .send_interval = -1.f,
         .recv_timeout = -1.f,
         .subscriptions = {NULL, 0},
         .data_to_send = {NULL, 0},
