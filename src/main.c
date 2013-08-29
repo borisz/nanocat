@@ -470,8 +470,8 @@ void nc_rw_loop(nc_options_t *options, int sock) {
                 if(errno == EAGAIN || errno == EWOULDBLOCK) {
                     continue;
                 } else if(errno == ETIMEDOUT || errno == EFSM) {
-                    time_to_sleep = nc_time() - \
-                        (start_time + options->send_period);
+                    time_to_sleep = (start_time + options->send_period) \
+                        - nc_time();
                     if(time_to_sleep > 0)
                         nc_sleep(time_to_sleep);
                     continue;
