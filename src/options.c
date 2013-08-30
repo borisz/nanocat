@@ -476,12 +476,21 @@ static void nc_process_option(struct nc_parse_context *ctx,
 static void nc_parse_arg0(struct nc_parse_context *ctx) {
     int i;
     struct nc_option *opt;
+    char *arg0;
+
+    arg0 = strrchr(ctx->argv[0], '/');
+    if(arg0 == NULL) {
+        arg0 = ctx->argv[0];
+    } else {
+        arg0 += 1; /*  Skip slash itself  */
+    }
+
 
     for(i = 0;; ++i) {
         opt = &ctx->options[i];
         if(!opt->longname)
             return;
-        if(opt->arg0name && !strcmp(ctx->argv[0], opt->arg0name)) {
+        if(opt->arg0name && !strcmp(arg0, opt->arg0name)) {
             assert(!nc_has_arg(opt));
             ctx->last_option_usage[i] = ctx->argv[0];
             nc_process_option(ctx, i, NULL);
