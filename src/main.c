@@ -182,13 +182,33 @@ struct nc_option nc_options[] = {
 
     /* Socket Options */
     {"bind", 'b' , NULL,
-     NC_OPT_STRING_LIST, offsetof(nc_options_t, bind_addresses), NULL,
+     NC_OPT_LIST_APPEND, offsetof(nc_options_t, bind_addresses), NULL,
      NC_MASK_ENDPOINT, NC_NO_CONFLICTS, NC_NO_REQUIRES,
      "Socket Options", "ADDR", "Bind socket to the address ADDR"},
     {"connect", 'c' , NULL,
-     NC_OPT_STRING_LIST, offsetof(nc_options_t, connect_addresses), NULL,
+     NC_OPT_LIST_APPEND, offsetof(nc_options_t, connect_addresses), NULL,
      NC_MASK_ENDPOINT, NC_NO_CONFLICTS, NC_NO_REQUIRES,
      "Socket Options", "ADDR", "Connect socket to the address ADDR"},
+    {"bind-ipc", 'X' , NULL, NC_OPT_LIST_APPEND_FMT,
+     offsetof(nc_options_t, bind_addresses), "ipc://%s",
+     NC_MASK_ENDPOINT, NC_NO_CONFLICTS, NC_NO_REQUIRES,
+     "Socket Options", "PATH", "Bind socket to the ipc address "
+                               "\"ipc://PATH\"."},
+    {"connect-ipc", 'x' , NULL, NC_OPT_LIST_APPEND_FMT,
+     offsetof(nc_options_t, connect_addresses), "ipc://%s",
+     NC_MASK_ENDPOINT, NC_NO_CONFLICTS, NC_NO_REQUIRES,
+     "Socket Options", "PATH", "Connect socket to the ipc address "
+                               "\"ipc://PATH\"."},
+    {"bind-local", 'L' , NULL, NC_OPT_LIST_APPEND_FMT,
+     offsetof(nc_options_t, bind_addresses), "tcp://127.0.0.1:%s",
+     NC_MASK_ENDPOINT, NC_NO_CONFLICTS, NC_NO_REQUIRES,
+     "Socket Options", "PORT", "Bind socket to the tcp address "
+                               "\"tcp://127.0.0.1:PORT\"."},
+    {"connect-local", 'l' , NULL, NC_OPT_LIST_APPEND_FMT,
+     offsetof(nc_options_t, connect_addresses), "tcp://127.0.0.1:%s",
+     NC_MASK_ENDPOINT, NC_NO_CONFLICTS, NC_NO_REQUIRES,
+     "Socket Options", "PORT", "Connect socket to the tcp address "
+                               "\"tcp://127.0.0.1:PORT\"."},
     {"recv-timeout", 't', NULL,
      NC_OPT_FLOAT, offsetof(nc_options_t, recv_timeout), NULL,
      NC_NO_PROVIDES, NC_NO_CONFLICTS, NC_MASK_READABLE,
@@ -200,7 +220,7 @@ struct nc_option nc_options[] = {
 
     /* Pattern-specific options */
     {"subscribe", 0, NULL,
-     NC_OPT_STRING_LIST, offsetof(nc_options_t, subscriptions), NULL,
+     NC_OPT_LIST_APPEND, offsetof(nc_options_t, subscriptions), NULL,
      NC_NO_PROVIDES, NC_NO_CONFLICTS, NC_MASK_SOCK_SUB,
      "SUB Socket Options", "PREFIX", "Subscribe to the prefix PREFIX. "
         "Note: socket will be subscribed to everything (empty prefix) if "
@@ -217,7 +237,7 @@ struct nc_option nc_options[] = {
      NC_NO_PROVIDES, NC_NO_CONFLICTS, NC_MASK_READABLE,
      "Input Options", NULL, "Dump message as is "
                            "(Note: no delimiters are printed)"},
-    {"ascii", 'L', NULL,
+    {"ascii", 'A', NULL,
      NC_OPT_SET_ENUM, offsetof(nc_options_t, echo_format), &nc_echo_ascii,
      NC_NO_PROVIDES, NC_NO_CONFLICTS, NC_MASK_READABLE,
      "Input Options", NULL, "Print ASCII part of message delimited by newline. "

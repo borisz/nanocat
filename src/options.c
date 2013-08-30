@@ -58,7 +58,8 @@ static int nc_has_arg(struct nc_option *opt) {
         case NC_OPT_BLOB:
         case NC_OPT_FLOAT:
         case NC_OPT_INT:
-        case NC_OPT_STRING_LIST:
+        case NC_OPT_LIST_APPEND:
+        case NC_OPT_LIST_APPEND_FMT:
         case NC_OPT_READ_FILE:
             return 1;
     }
@@ -321,12 +322,31 @@ static void nc_option_requires(struct nc_parse_context *ctx, int opt_index) {
     exit(1);
 }
 
+static void nc_append_string(struct nc_parse_context *ctx,
+                             struct nc_option *opt, char *str)
+{
+    struct nc_string_list *lst;
+
+    lst = (struct nc_string_list *)(
+        ((char *)ctx->target) + opt->offset);
+    if(lst->items) {
+        lst->num += 1;
+        lst->items = realloc(lst->items, sizeof(char *)*lst->num);
+    } else {
+        lst->items = malloc(sizeof(char *));
+        lst->num = 1;
+    }
+    if(!lst->items) {
+        nc_memory_error(ctx);
+    }
+    lst->items[lst->num-1] = str;
+}
+
 static void nc_process_option(struct nc_parse_context *ctx,
                               int opt_index, char *argument) {
     struct nc_option *opt;
     struct nc_enum_item *items;
     char *endptr;
-    struct nc_string_list *lst;
     struct nc_blob *blob;
     FILE *file;
     char *data;
@@ -390,20 +410,15 @@ static void nc_process_option(struct nc_parse_context *ctx,
                                 ctx, opt_index);
             }
             return;
-        case NC_OPT_STRING_LIST:
-            lst = (struct nc_string_list *)(
-                ((char *)ctx->target) + opt->offset);
-            if(lst->items) {
-                lst->num += 1;
-                lst->items = realloc(lst->items, sizeof(char *)*lst->num);
-            } else {
-                lst->items = malloc(sizeof(char *));
-                lst->num = 1;
-            }
-            if(!lst->items) {
-                nc_memory_error(ctx);
-            }
-            lst->items[lst->num-1] = argument;
+        case NC_OPT_LIST_APPEND:
+            nc_append_string(ctx, opt, argument);
+            return;
+        case NC_OPT_LIST_APPEND_FMT:
+            data_buf = strlen(argument) + strlen(opt->pointer);
+            data = malloc(data_buf);
+            data_len = snprintf(data, data_buf, opt->pointer, argument);
+            assert(data_len < data_buf);
+            nc_append_string(ctx, opt, data);
             return;
         case NC_OPT_READ_FILE:
             if(!strcmp(argument, "-")) {

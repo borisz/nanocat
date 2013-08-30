@@ -33,7 +33,8 @@ enum nc_option_type {
     NC_OPT_STRING,
     NC_OPT_BLOB,
     NC_OPT_FLOAT,
-    NC_OPT_STRING_LIST,
+    NC_OPT_LIST_APPEND,
+    NC_OPT_LIST_APPEND_FMT,
     NC_OPT_READ_FILE
 };
 
