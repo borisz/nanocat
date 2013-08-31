@@ -13,7 +13,7 @@ Basic process is following. Feel free to adjust for your own needs::
 
     mkdir build
     cd build
-    cmake .. --CMAKE_BUILD_PREFIX=/usr
+    cmake --CMAKE_BUILD_PREFIX=/usr/local ..
     make
     sudo make install
 
